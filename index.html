@@ -1,0 +1,1904 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; worker-src blob:; child-src blob:; connect-src 'none'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="color-scheme" content="light dark">
+<script>try{const t=localStorage.getItem('vlan-acl-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}</script>
+<title>VLAN ACL Matrix · v2.3.1</title>
+<style>
+/* Theme via prefers-color-scheme (not light-dark()) so pre-2024 browsers keep their colors. */
+:root{color-scheme:light dark;--bg:#f6f7f9;--panel:#fff;--panel2:#f1f4f7;--line:#dce2e8;--text:#263443;--muted:#617082;--allowText:#187147;--denyText:#b62e40;--reviewText:#946409;--openText:#356c96;--highlight:#e7f0f9;--highlight2:#d3e4f5;--splitText:var(--denyText);--column:60px;--headH:118px;--source:150px;--row:44px;--scrollbar:14px}
+/* Theme: follows the system unless the user picks Light or Dark (data-theme on <html>). */
+:root[data-theme=light]{color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#151a21;--panel:#1a2029;--panel2:#232c38;--line:#36414e;--text:#e6edf5;--muted:#afbdcc;--allowText:#83dcae;--denyText:#fa98a2;--reviewText:#efc97b;--openText:#93c5ed;--highlight:#1f3245;--highlight2:#2a4560}}
+:root[data-theme=dark]{color-scheme:dark;--bg:#151a21;--panel:#1a2029;--panel2:#232c38;--line:#36414e;--text:#e6edf5;--muted:#afbdcc;--allowText:#83dcae;--denyText:#fa98a2;--reviewText:#efc97b;--openText:#93c5ed;--highlight:#1f3245;--highlight2:#2a4560}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button,summary{cursor:pointer}
+button{touch-action:manipulation}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--openText);outline-offset:-2px}
+a{color:var(--openText)}
+/* App shell: the page itself does not scroll; the matrix is the single scroll area for the grid. */
+.wrap{padding:10px;max-width:2000px;margin:auto;height:100vh;height:100dvh;display:flex;flex-direction:column}
+.topbar{flex:none}
+.topbar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:6px;min-height:44px}
+.topbar h1{font-size:14px;margin:0;line-height:1.2}
+.version{font-size:11px;color:var(--muted)}
+.tagline{font-size:12px;color:var(--muted);margin-left:4px}
+.tagline::before{content:'·';margin-right:6px}
+.btn{background:var(--panel);border:1px solid var(--line);border-radius:5px;min-height:32px;padding:5px 9px;white-space:nowrap}
+.btn:hover{background:var(--panel2)}
+.btn.primary{background:var(--text);color:var(--panel);border-color:var(--text)}
+.grid{display:grid;grid-template-columns:310px minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:10px;align-items:start;flex:1 1 auto;min-height:0}
+.inputCard{max-height:100%;overflow:auto}
+.matrixCard{display:flex;flex-direction:column;align-self:stretch;overflow:auto}
+.matrixCard>*{flex:none}
+.matrixCard>.matrixWrap{flex:1 1 auto;min-height:160px}
+.grid.matrixOnly{grid-template-columns:1fr}
+.matrixOnly .inputCard{display:none}
+.card{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.cardHead{padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+.cardHead h2{font-size:14px;margin:0}
+.cardBody{padding:0 12px 12px}
+.hint,.help,.status,.count,.ruleNote{font-size:12px;color:var(--muted)}
+.hint{margin:0 0 10px}
+.status{margin-top:8px}
+.error{color:var(--denyText)}
+textarea{width:100%;height:360px;resize:vertical;min-height:150px;padding:10px;background:var(--bg);border:1px solid var(--line);border-radius:5px;font:12px/1.5 ui-monospace,Consolas,monospace}
+.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.help{margin-top:12px}
+.help p{margin:10px 0}
+.help pre,code{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 ui-monospace,Consolas,monospace}
+.filters{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.filters label{display:flex;gap:5px;align-items:center;font-size:12px;color:var(--muted)}
+.filters input,.filters select,.toolsPanel select,.packetPanel input{width:160px;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:6px 8px;height:32px}
+.filters select{width:136px}
+.filters input[type=checkbox]{width:auto;height:auto}
+.toolsPanel{padding:10px 12px;background:var(--panel2);border-bottom:1px solid var(--line);max-height:45vh;max-height:45dvh;overflow:auto}
+.panelHead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.panelHead b{font-size:13px}
+.panelHead .hint{margin:0}
+.panelHead .close{margin-left:auto;min-height:28px;width:28px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.tabs button{border:0;border-bottom:2px solid transparent;background:transparent;padding:6px 10px;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected=true]{color:var(--text);border-bottom-color:var(--openText);font-weight:600}
+.tabs .n{margin-left:5px;font-weight:400;color:var(--muted)}
+.invTable{width:100%;border-collapse:collapse;font-size:12px}
+.invTable th,.invTable td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.invTable th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:500}
+.linkBtn{border:0;background:none;padding:0;color:var(--openText);font-weight:600;cursor:pointer}
+.muted{color:var(--muted)}
+.aclBlock{padding:5px 0;border-bottom:1px solid var(--line)}
+.aclBlock>summary{cursor:pointer}
+.aclBlock code{display:block;margin:2px 0 2px 16px;color:var(--muted)}
+.noteList{display:grid;gap:4px}
+.note{padding:6px 8px;border:0;border-radius:4px;background:var(--panel);font-size:12px;text-align:left;overflow-wrap:anywhere}
+button.note{cursor:pointer}
+button.note:hover{background:var(--highlight)}
+.count{display:inline-block;min-width:18px;margin-left:6px;padding:0 5px;border-radius:9px;background:var(--panel2);color:var(--muted);font-size:11px;line-height:18px;text-align:center}
+/* Top bar groups and the Export menu. */
+.toolSep{width:1px;height:22px;background:var(--line);margin:0 4px}
+.iconBtn{display:inline-flex;align-items:center;gap:5px}
+.iconBtn svg{width:15px;height:15px}
+.btn.danger{border-color:var(--denyText);color:var(--denyText)}
+.toolbar .btn[aria-expanded=true]:not(.primary){background:var(--panel2);border-color:var(--openText);color:var(--text)}
+.menu{position:relative}
+.menuList{position:absolute;right:0;top:calc(100% + 4px);z-index:30;width:320px;display:grid;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 28px #0003}
+.menuList button{display:grid;gap:1px;padding:7px 10px;border:0;border-radius:4px;background:transparent;text-align:left;cursor:pointer}
+.menuList button small{color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+.menuList button:hover:not(:disabled),.menuList button:focus-visible{background:var(--panel2)}
+.menuList button:disabled{opacity:.5;cursor:default}
+.menuSep{height:1px;margin:4px 6px;background:var(--line)}
+/* One bar above the grid: result counts (also the result filter) and the search filters. */
+.matrixBar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:6px 8px;border-bottom:1px solid var(--line)}
+.matrixBar .summaryBar{flex:1 1 auto;padding:0;border:0}
+.inlineFilters{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.inlineFilters input[type=search]{width:190px}
+.inlineFilters select{width:150px}
+.overview{display:flex;gap:6px;flex-wrap:wrap}
+.overview b{margin-right:3px}
+.inventory{margin-top:8px}
+.inventoryHead{display:flex;justify-content:space-between;align-items:center;margin:4px 0}
+.inventory table{width:100%;border-collapse:collapse}
+.inventory td,.inventory th{padding:6px;text-align:left;border-bottom:1px solid var(--line)}
+.packetPanel .filters{margin-top:4px}
+.packetPanel .filters{align-items:end}
+.packetPanel label{display:grid}
+.packetPanel label.check{display:flex;align-items:center;gap:6px;height:32px;align-self:end}
+.packetPanel label.check input{width:auto;height:auto}
+.packetPanel input[type=number]{width:95px}
+.issues{font-size:12px;padding:7px 12px;border-bottom:1px solid var(--line)}
+.notices{max-height:250px;max-height:min(250px,25vh);max-height:min(250px,25dvh);overflow:auto;overscroll-behavior:contain}
+.notice{padding:8px;background:var(--panel2);margin:5px 0;overflow-wrap:anywhere}
+.issueLink{width:100%;text-align:left;border:0;color:var(--reviewText)}
+.focusBar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 8px;font-size:12px;border-bottom:1px solid var(--line)}
+.focusBar .btn:last-child{margin-left:auto}
+/* Overlay scrollbars (Windows 11, phones) draw on top of content, so pad the far edges to let the last
+   row and column scroll clear of them. Only the standard scrollbar properties are used: in current
+   Chromium they override ::-webkit-scrollbar, so mixing both silently dropped the custom size. */
+.matrixWrap{overflow:auto;position:relative;overscroll-behavior:contain;scroll-padding:calc(28px + var(--headH)) var(--scrollbar) var(--scrollbar) var(--source);scrollbar-color:var(--muted) var(--panel2)}
+.overlayScrollbars .matrixWrap{padding:0 var(--scrollbar) var(--scrollbar) 0}
+.matrix{border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:12px}
+.matrix th,.matrix td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;text-align:left}
+.matrix thead th{position:sticky;background:var(--panel2);z-index:4}
+.groupRow th{top:0;height:28px;white-space:nowrap;font-weight:500;font-size:10px;overflow:clip;text-overflow:ellipsis}
+.groupLabel{padding:4px 5px!important}
+.groupText{display:inline-flex;max-width:100%;vertical-align:middle;position:sticky;left:calc(var(--source) + 6px)}
+.groupName{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.groupCount{margin-left:4px;color:var(--muted);flex:none}
+.key{flex:none;max-height:35%;overflow:auto}
+.columnRow th{top:28px}
+.matrix .corner{left:0;top:0;z-index:7;width:var(--source);padding:5px;font-size:10px}
+.cornerBox{display:flex;flex-direction:column;justify-content:space-between;height:calc(28px + var(--headH) - 12px);font-weight:600;color:var(--muted)}
+.cornerBox span:first-child{align-self:flex-end}
+/* Vertical column headers (read bottom-up) let columns shrink to the width of the cell icons. */
+.headContent{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;width:100%;height:var(--headH);background:transparent;border:0;padding:6px 4px;overflow:hidden;writing-mode:vertical-rl;transform:rotate(180deg)}
+.headContent .rowName{max-width:none;max-height:100%}
+.denyMark svg{width:11px;height:11px;vertical-align:-1px;margin-right:3px}
+.headContent strong{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-height:100%;font-size:11px;line-height:1.3}
+.address,.rowName,.vrf{display:block;font-size:11px;color:var(--muted);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.rowHead{position:sticky;left:0;z-index:3;background:var(--panel);width:var(--source)}
+.rowHead button{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;width:100%;height:var(--row);background:transparent;border:0;padding:4px 10px;overflow:hidden;text-align:left}
+.summaryBar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px}
+.summaryLabel{color:var(--muted);margin-right:4px}
+.chip{display:inline-flex;gap:5px;align-items:center;border:1px solid var(--line);border-radius:999px;background:var(--panel);padding:3px 10px;min-height:28px}
+.chip:hover{background:var(--panel2)}
+.chip b{color:var(--text);font-weight:600}
+.chip[aria-pressed=true]{border-color:currentColor;background:var(--panel2)}
+.chip svg{width:14px;height:14px}
+.empty .btn{margin-top:12px}
+.empty.restoring{color:var(--text)}
+.empty.intro{max-width:460px;margin:auto;text-align:left;padding:48px 20px}
+.intro h2{font-size:16px;margin:0 0 10px;color:var(--text)}
+.steps{margin:0 0 6px;padding-left:20px;line-height:1.9;color:var(--muted)}
+.steps b{color:var(--text)}
+.cell{position:relative;display:flex;align-items:center;justify-content:center;gap:1px;width:100%;height:var(--row);padding:2px 1px;transition:background-color .12s;border:0;background:var(--panel);white-space:nowrap;font-size:12px;overflow:hidden}
+.cell:hover{background:var(--highlight)}
+.headContent:hover,.rowHead button:hover{background:var(--panel2)}
+.matrix thead th.axisHover,.rowHead.axisHover{background:var(--highlight)}
+.cell.selected,.axisSelected{box-shadow:inset 0 0 0 2px var(--openText)}
+.cell.mutedCell{opacity:.3}
+.cell.mutedCell:hover,.cell.mutedCell:focus-visible{opacity:1}
+.cell svg,.keyIcon svg{width:16px;height:16px;vertical-align:middle;flex-shrink:0}
+.allow,.permit{color:var(--allowText)}
+.deny,.split{color:var(--denyText)}
+.varied{color:var(--text)}
+.review{color:var(--reviewText)}
+.open{color:var(--openText)}
+.same{color:var(--muted)}
+.exceptions{display:inline-flex;gap:0;align-items:center;pointer-events:none}
+.serviceFallback{font-size:11px}
+.divider{border-left:2px solid var(--line)!important}
+.empty{padding:60px 20px;text-align:center;color:var(--muted)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.key{border-top:1px solid var(--line);font-size:12px}
+.key>summary{display:flex;align-items:center;min-height:38px;padding:5px 10px;color:var(--muted);list-style:none}
+.keyStatus{display:flex;gap:7px 14px;flex-wrap:wrap;padding:2px 0 10px;border-bottom:1px solid var(--line)}
+.keyStatus span{display:flex;align-items:center;gap:5px}
+.keyStatus svg{width:15px;height:15px}
+.keyMessage{font-size:12px;color:var(--reviewText)}
+.hoverCard{position:fixed;z-index:50;max-width:min(340px,calc(100vw - 20px));background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:10px 12px;box-shadow:0 6px 24px #0003;font-size:12px;line-height:1.55;white-space:pre-line;pointer-events:none;overflow-wrap:anywhere}
+
+dialog{color:var(--text);background:var(--panel);border:1px solid var(--line);padding:0;width:350px;max-width:350px;max-height:100vh;max-height:100dvh;height:100vh;height:100dvh;position:fixed;top:0;left:auto;right:0;bottom:0;margin:0;overflow:auto;overscroll-behavior:contain;border-radius:0;z-index:20}
+dialog::backdrop{background:#0006}
+.dialogHead{position:sticky;top:0;z-index:3;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 12px;display:flex;gap:8px;align-items:center;justify-content:space-between}
+.dialogHead h2{font-size:13px;margin:0;overflow-wrap:anywhere}
+.dialogHead h2:focus{outline:none}
+.close{font-size:23px;width:32px;padding:0;flex-shrink:0}
+.dialogBody{padding:12px}
+.path{display:grid;grid-template-columns:1fr auto 1fr;gap:7px}
+.path .k{font-size:10px;color:var(--muted)}
+.path strong{font-size:12px;overflow-wrap:anywhere}
+.path .net{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.arrow{align-self:center}
+.resultLine{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0}
+.resultLine p{font-size:12px;color:var(--muted);margin:0}
+.resultBadge{font-size:14px;font-weight:600}
+.scopeNote{font-size:12px;padding:10px 0;margin:8px 0;border-bottom:1px solid var(--line);color:var(--muted)}
+.references{margin-top:10px;border:1px solid var(--line);border-radius:5px;overflow:hidden;font-size:12px}
+.references>summary{padding:8px;background:var(--panel2);overflow-wrap:anywhere}
+.ruleNote{margin:5px 0}
+.references{padding:8px}
+.references>summary{margin:-8px}
+.references[open]>summary{margin-bottom:8px}
+.detailActions{display:flex;gap:6px;margin-top:12px}
+/* Panel legend: the cell's own icons, one terse line each. */
+.whyList{display:grid;gap:7px;margin:12px 0}
+.why{display:grid;grid-template-columns:20px minmax(0,1fr);gap:6px;align-items:start;font-size:12px;overflow-wrap:anywhere}
+.why svg{width:16px;height:16px;margin-top:1px}
+.why .serviceFallback{font-size:11px}
+.why b{font-weight:600;margin-right:4px}
+/* ACL trace: one row per ACE; deciding rows coloured with the cell's icon, the rest greyed or collapsed. */
+.trace{margin-top:4px;font-size:12px}
+.traceHead{font-weight:600;padding:8px 0 3px;border-top:1px solid var(--line)}
+.traceHead span{font-weight:400;color:var(--muted)}
+.traceLine{display:grid;grid-template-columns:20px minmax(0,1fr);gap:0 6px;align-items:start;padding:2px 3px;border-radius:3px}
+.traceLine>span:first-child svg{width:14px;height:14px;margin-top:2px}
+.traceLine code{font:11.5px/1.45 ui-monospace,Consolas,monospace;overflow-wrap:anywhere;color:var(--text)}
+.traceLine code small{font:10px system-ui,sans-serif;color:var(--muted)}
+.traceLine.idle,.traceLine.idle code{color:var(--muted)}
+.traceWhere{grid-column:2;font-size:10.5px;color:var(--muted)}
+.traceWhere::before{content:'→ '}
+.traceLine.lit{background:var(--highlight)}
+.traceMore>summary{display:inline-flex;align-items:center;gap:5px;margin:4px 0 2px 29px;padding:2px 9px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted);font-size:11px;list-style:none;cursor:pointer}
+.traceMore>summary:hover{background:var(--panel2);color:var(--text)}
+.traceMore>summary::-webkit-details-marker{display:none}
+.traceMore>summary::before{content:'\25B8'}
+.traceMore[open]>summary::before{content:'\25BE'}
+.traceMore .hideText,.traceMore[open] .showText{display:none}
+.traceMore[open] .hideText{display:inline}
+.traceMore[open]>summary{margin-bottom:3px}
+.why[data-icon]{cursor:pointer;border-radius:3px}
+.why.sub{margin-left:18px}
+.subLine{display:grid;grid-template-columns:minmax(64px,42%) minmax(0,1fr);gap:8px}
+.subLine b{margin:0}
+.rowWide{margin-left:5px;display:inline-flex;gap:2px;vertical-align:-1px}
+.rowWide svg{width:12px;height:12px}
+.inlineIcon svg{width:13px;height:13px;vertical-align:-2px;margin:0 2px 0 1px}
+.why[data-icon]:hover,.why[aria-pressed=true]{background:var(--highlight)}
+/* Row / column highlight toggled from the headers. */
+.rowLit>td .cell,.rowLit>.rowHead,td.colLit .cell,.matrix thead th.colLit{background:var(--highlight)}
+.rowLit>td.colLit .cell,.rowLit>td .cell:hover,td.colLit .cell:hover{background:var(--highlight2)}
+.rowHead button[aria-pressed=true] strong,.headContent[aria-pressed=true] strong{text-decoration:underline;text-underline-offset:3px}
+.toolsPanel label{font-size:12px}
+.toolsPanel select{margin-left:5px}
+.resultBadge svg{width:17px;height:17px;vertical-align:middle;margin-right:5px}
+@media(min-width:761px){body.detailsOpen .wrap{margin-right:360px;max-width:none}}
+@media(max-width:900px){.grid{grid-template-columns:1fr}
+.wrap{padding:6px}
+textarea{height:220px}
+/* Stacked config + matrix cannot share one screen: fall back to normal page scrolling. */
+.wrap.withConfig{height:auto}
+.grid:not(.matrixOnly){display:block}
+.grid:not(.matrixOnly)>.card+.card{margin-top:10px}
+.grid:not(.matrixOnly) .matrixWrap{max-height:70vh;max-height:70dvh}
+}
+
+
+
+.cell>svg{pointer-events:none}
+.cell>.explainIcon{pointer-events:auto}
+.explainIcon{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:0 0 18px;width:18px;height:32px;background:transparent;border:0;border-radius:3px;cursor:pointer}
+.explainIcon:hover{background:var(--panel2)}
+.exceptions .explainIcon{pointer-events:auto}
+.cell:focus-visible{box-shadow:inset 0 0 0 2px var(--openText)}
+.hoverCard{pointer-events:auto;max-height:430px;max-height:min(430px,65dvh);overflow:auto;overscroll-behavior:contain}
+
+
+
+.brand{display:flex;align-items:baseline;gap:6px;flex-shrink:0}
+.toolbar{display:flex;gap:5px;align-items:center}
+.toolbar .btn{padding:5px 8px;min-height:36px}
+.key>summary::before{content:'▸';margin-right:5px}
+.key[open]>summary::before{content:'▾'}
+.keyBody{padding:0 10px 10px}
+.keyItems{display:flex;gap:8px 16px;flex-wrap:wrap;padding:10px 0;max-height:40vh;max-height:40dvh;overflow:auto}
+.keyEntry{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.keyEntry svg{width:16px;height:16px;flex-shrink:0}
+.keyEntry small{color:var(--muted);font-size:10px}
+.keyActions{display:flex;gap:5px;flex-wrap:wrap}
+.keyMessage{margin:6px 0 0}
+.keyMessage:empty{display:none}
+.keyItems.editing{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.keyItem{display:grid;grid-template-columns:36px minmax(0,1fr) 36px;gap:4px;align-items:center;min-width:0;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.keyItem input,.keyItem select{width:100%;min-width:0;border:1px solid var(--line);border-radius:4px;padding:6px;background:var(--panel);color:var(--text)}
+.keyIcon,.keyDelete{padding:4px;background:transparent;border:1px solid var(--line);border-radius:4px;min-height:36px}
+.keyDelete{color:var(--muted);font-size:18px}
+.keyIcon svg{width:18px;height:18px}
+.keyEditor{grid-column:1/-1;display:grid;grid-template-columns:100px minmax(0,1fr);gap:6px}
+.keyEditor label{display:grid;gap:2px;font-size:10px;color:var(--muted)}
+.iconPicker{grid-column:1/-1;display:flex;gap:4px;flex-wrap:wrap;padding:5px;background:var(--panel2);border-radius:4px}
+.iconPicker button{padding:7px;border:1px solid var(--line);background:var(--panel);border-radius:4px;min-width:36px;min-height:36px}
+.iconPicker [aria-pressed=true]{border-color:var(--openText)}
+.iconPicker svg{width:17px;height:17px}
+
+@media(max-width:760px){.brand{flex-direction:column;gap:0;justify-content:center}
+.topbar{gap:4px}
+.toolbar{gap:4px}
+.toolbar .btn{min-height:44px;padding:5px 7px}
+.topbar h1{font-size:13px}
+.version{font-size:10px}
+.btn{min-height:44px}
+.filters{width:100%}
+.filters label{min-width:120px}
+.filters input,.filters select{font-size:16px;min-height:44px}
+.packetPanel .filters label{flex:1;min-width:120px}
+.packetPanel input{width:100%}
+dialog{top:auto;bottom:0;left:0;right:0;width:100%;max-width:none;height:84vh;height:84dvh;max-height:84vh;max-height:84dvh;border-radius:10px 10px 0 0}
+.close{width:44px}
+.key>summary{min-height:44px}
+.keyItem input,.keyItem select{font-size:16px;min-height:44px}
+.keyIcon,.keyDelete{min-height:44px}
+.iconPicker button{min-width:44px;min-height:44px}
+.hoverCard{font-size:13px}
+.keyStatus{gap:8px 12px}
+.keyEntry small{display:none}
+.tagline{display:none}
+.topbar{flex-wrap:wrap}
+.toolbar{flex-wrap:wrap;justify-content:flex-end}
+.toolSep{display:none}
+.iconBtn span{display:none}
+.inlineFilters{display:grid;grid-template-columns:1fr 1fr;width:100%}
+.inlineFilters input[type=search],.inlineFilters select{width:100%;min-width:0}
+.menuList{min-width:0;width:calc(100vw - 24px);max-width:340px}
+:root{--source:74px}
+.rowHead button{align-items:center;padding:4px}
+.rowHead .rowName{display:none}
+.chip{min-height:36px;flex:none}
+.summaryBar{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+.summaryLabel{flex:none}
+}
+
+</style>
+</head>
+<body>
+<div class="wrap withConfig">
+  <header class="topbar"><div class="brand"><h1>VLAN ACL Matrix</h1><span class="tagline">Who can reach whom, from your SVI ACLs</span><span class="version">v2.3.1</span></div><nav class="toolbar" aria-label="App controls"><button class="btn" id="expandBtn" aria-expanded="true" aria-controls="configCard">Config</button><span class="toolSep" id="toolSep" aria-hidden="true" hidden></span><button class="btn" id="inventoryToggle" aria-expanded="false" aria-controls="inventoryPanel" hidden>Inventory<span class="count" id="inventoryCount" hidden></span></button><button class="btn" id="packetToggle" aria-expanded="false" aria-controls="packetPanel" hidden>Packet lookup</button><div class="menu" id="exportMenu" hidden><button class="btn primary" id="exportToggle" aria-haspopup="menu" aria-expanded="false" aria-controls="exportList">Export <span aria-hidden="true">&#9662;</span></button><div class="menuList" id="exportList" role="menu" hidden><button type="button" role="menuitem" id="excelBtn">Excel workbook<small>This switch only</small></button><div class="menuSep" role="separator"></div><button type="button" role="menuitem" id="workbookAdd">Add switch to multi-switch file</button><button type="button" role="menuitem" id="workbookDownload" hidden>Download multi-switch file</button></div></div><span class="toolSep" aria-hidden="true"></span><button class="btn" id="clearAll" type="button" hidden>Clear</button><button class="btn iconBtn" id="themeBtn" type="button"></button></nav></header>
+  <main class="grid">
+    <section class="card inputCard" id="configCard"><div class="cardHead"><h2>Paste configuration</h2></div><div class="cardBody">
+      <p class="hint">Paste <b>show running-config</b> or <b>show access-lists</b> output with the <b>interface Vlan</b> and ACL blocks, in any order. Only <b>ip access-group</b> attaches an ACL.</p>
+      <textarea id="configInput" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Cisco SVI and ACL configuration" placeholder="! Example — paste your own SVI and ACL output here&#10;interface Vlan12&#10; description Users&#10; ip address 192.168.12.1 255.255.255.0&#10; ip access-group VLAN12_IN in&#10;!&#10;Extended IP access list VLAN12_IN&#10; 50 permit ip any 10.0.12.0 0.255.0.255&#10; 90 deny ip any 10.0.0.0 0.255.255.255&#10; 100 permit ip any any"></textarea>
+      <div class="actions"><button class="btn primary" id="analyzeBtn" type="button">Analyze</button><button class="btn" id="cancelBtn" type="button" hidden>Cancel</button><button class="btn" id="exampleBtn" type="button">Load example</button></div>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+
+      <details class="help"><summary>How results are worked out</summary>
+        <p><b>Scope.</b> One switch at a time. Everything stays in this browser tab; nothing is uploaded or saved.</p>
+        <p><b>Read from the paste.</b> IPv4 standard and extended ACLs (named and numbered), sequence order and hit counters, any wildcard mask, <code>host</code>/CIDR/<code>any</code>, TCP/UDP ports (numbers, common names, <code>eq</code> lists, ranges), ICMP types and codes, and <code>established</code>.</p>
+        <p><b>A cell</b> is traffic from the source VLAN to the destination, through the source IN ACL, then the destination OUT ACL. Every address and port is checked.</p>
+        <p><b>Results.</b> <b>Allowed</b>: the ACLs permit all of it. <b>Blocked</b>: they permit none of it. <b>With exceptions</b>: part is permitted; the icons say what. <b>No ACL</b>: no ACL applies in either direction. <b>Needs input</b>: something missing or unsupported (e.g. an undefined ACL) could change the answer.</p>
+        <p><b>Columns.</b> Your VLANs, plus networks named in deny rules (<b>Deny targets</b>) and permit rules (<b>Other networks</b>). <b>Other IPv4</b> is every address outside your VLANs and those networks.</p>
+        <p><b>Not modeled.</b> Routing between VRFs, NAT, firewalls, return traffic, fragments and traffic sent by the switch itself.</p>
+        <p>Reference: <a href="https://www.cisco.com/c/en/us/support/docs/security/ios-firewall/23602-confaccesslists.html" target="_blank" rel="noopener noreferrer">Cisco — Configure IP Access Lists</a>.</p>
+      </details>
+    </div></section>
+    <section class="card matrixCard">
+      <section id="inventoryPanel" class="toolsPanel" aria-label="Inventory" hidden>
+        <div class="panelHead"><b>Inventory</b><span class="hint" id="inventorySummary"></span><button type="button" class="btn close" data-close-panel aria-label="Close inventory">×</button></div>
+        <div class="tabs" role="tablist" id="inventoryTabs" aria-label="Inventory views"></div>
+        <div id="inventoryBody" role="tabpanel"></div>
+      </section>
+      <section id="packetPanel" class="toolsPanel packetPanel" aria-label="Packet lookup" hidden>
+        <div class="panelHead"><b>Packet lookup</b><span class="hint">Test one packet against the ACLs.</span><button type="button" class="btn close" data-close-panel aria-label="Close packet lookup">×</button></div>
+        <form id="packetForm"><div class="filters">
+        <label>Source IP<input id="packetSrc" required placeholder="10.12.0.10" inputmode="decimal"></label>
+        <label>Source VLAN<select id="packetSrcVlan"><option value="">Auto-detect</option></select></label>
+        <label>Destination IP<input id="packetDst" required placeholder="10.50.0.10" inputmode="decimal"></label>
+        <label>Destination VLAN<select id="packetDstVlan"><option value="">Auto-detect</option></select></label>
+        <label>Protocol<select id="packetProto"><option value="6">TCP</option><option value="17">UDP</option><option value="1">ICMP</option><option value="47">GRE</option><option value="50">ESP</option><option value="other">Other protocol</option></select></label>
+        <label id="packetNumberLabel" hidden>Protocol number<input id="packetNumber" type="number" min="0" max="255" value="132"></label>
+        <label class="portField">Source port<input id="packetSport" type="number" min="0" max="65535" value="49152"></label>
+        <label class="portField">Destination port<input id="packetDport" type="number" min="0" max="65535" value="443"></label>
+        <label class="icmpField" hidden>ICMP type<input id="packetType" type="number" min="0" max="255" value="8"></label>
+        <label class="icmpField" hidden>ICMP code<input id="packetCode" type="number" min="0" max="255" value="0"></label>
+        <label id="packetAckLabel" class="check"><input id="packetAck" type="checkbox">TCP ACK/RST set</label>
+        <button class="btn primary" type="submit">Check packet</button></div></form>
+        <div id="packetResult" aria-live="polite"></div>
+      </section>
+      <div id="focusBar" class="focusBar" hidden></div>
+      <div id="matrixBar" class="matrixBar" hidden>
+        <div id="summaryBar" class="summaryBar" role="group" aria-label="Result counts"></div>
+        <div id="filters" class="filters inlineFilters" role="search" aria-label="Filter the matrix">
+          <input id="sourceSearch" type="search" placeholder="Source VLAN, IP or ACL" aria-label="Filter sources" autocomplete="off">
+          <input id="search" type="search" placeholder="Destination VLAN, IP or ACL" aria-label="Filter destinations" autocomplete="off">
+          <select id="groupFilter" aria-label="Destination type"><option value="">All destinations</option><option value="vlan">VLANs</option><option value="deny">Deny targets</option><option value="external">Other networks</option></select>
+          <input type="hidden" id="resultFilter" value="">
+          <button type="button" class="btn" id="resetFilters" hidden>Clear</button>
+        </div>
+      </div>
+      <div class="matrixWrap" id="matrixWrap" tabindex="0" aria-label="Scrollable ACL matrix"><div class="empty intro"><h2>See which VLANs can reach each other</h2><ol class="steps"><li>Paste one switch's SVI and ACL configuration on the left.</li><li>Select <b>Analyze</b>.</li><li>Click any cell to see the ACL lines behind its result.</li></ol><button class="btn" type="button" data-load-example>Try the example</button></div></div>
+      <details class="key" id="iconKey" open hidden><summary>Icon key</summary><div class="keyBody"><div class="keyStatus" id="keyStatus"></div><div class="keyItems" id="keyItems"></div><div class="keyActions"><button class="btn" id="editKey">Edit</button><button class="btn" id="addService" hidden>+ Add service</button><button class="btn" id="restoreKey" hidden>Restore defaults</button><button class="btn primary" id="saveKey" hidden>Save</button><button class="btn" id="cancelKey" hidden>Cancel</button></div><p class="keyMessage" id="keyMessage" role="status"></p></div></details>
+      
+    </section>
+  </main>
+  
+</div>
+<div class="hoverCard" id="hoverCard" role="tooltip" hidden></div>
+<dialog id="detailsDialog" aria-labelledby="detailsTitle"><div class="dialogHead"><h2 id="detailsTitle" tabindex="-1">Selected path</h2><button type="button" class="btn close" id="closeDetails" aria-label="Close path details">×</button></div><div class="dialogBody">
+  <div class="path"><div><div class="k">SOURCE</div><strong id="detailSrc"></strong><div id="detailSrcNet" class="net"></div></div><span class="arrow">→</span><div><div class="k">DESTINATION</div><strong id="detailDst"></strong><div id="detailDstNet" class="net"></div></div></div>
+  <div id="detailWhy" class="whyList"></div>
+  <div id="detailRules"></div>
+  <div class="detailActions"><button class="btn" id="focusSource">Show only this source</button><button class="btn" id="focusDestination">Show only this destination</button></div>
+</div></dialog>
+<script id="aclEngine">
+/* VLAN ACL Visualizer v2.3.1 — single shared parser / symbolic evaluator.
+ * Address sets are bit cubes, not bounding ranges. Packet sets are products of
+ * address cubes and integer intervals. Ordered subtraction implements first match.
+ * No packet sampling, host enumeration, or successful results after truncation.
+ */
+(function (root) {
+'use strict';
+const VERSION='2.3.1', U32=0xffffffff;
+const LIMITS={pieces:12000,operations:600000,targets:800,vlans:400,paths:80000,input:5000000};
+class AnalysisLimit extends Error {}
+const ANY=Object.freeze({v:0,m:0});
+function ipInt(s){
+  const p=String(s??'').split('.'); if(p.length!==4)return null;
+  let n=0;for(const x of p){if(!/^\d{1,3}$/.test(x)||+x>255)return null;n=n*256+(+x);}return n>>>0;
+}
+function ipText(n){return [n>>>24,(n>>>16)&255,(n>>>8)&255,n&255].join('.');}
+function cube(v,m){return {v:(v&m)>>>0,m:m>>>0};}
+function cubeKey(a){return `${a.v}:${a.m}`;}
+function cubeHit(a,n){return ((n&a.m)>>>0)===a.v;}
+function intersect(a,b){
+  if(((a.v^b.v)&a.m&b.m)!==0)return null;
+  return cube((a.v|b.v)>>>0,(a.m|b.m)>>>0);
+}
+function subtract(a,b){
+  const hit=intersect(a,b);if(!hit)return [a];
+  let rest=a;const out=[];let bits=(hit.m&~a.m)>>>0;
+  for(let i=31;i>=0;i--){const bit=(2**i)>>>0;if(!(bits&bit))continue;
+    const m=(rest.m|bit)>>>0;
+    out.push(cube((rest.v|((~hit.v)&bit))>>>0,m));
+    rest=cube((rest.v|(hit.v&bit))>>>0,m);
+  }return out;
+}
+function subtractMany(parts,exclusions){
+  for(const e of exclusions){const next=[];for(const p of parts){next.push(...subtract(p,e));if(next.length>LIMITS.pieces)throw new AnalysisLimit('Address-set complexity limit reached.');}parts=next;if(!parts.length)break;}return parts;
+}
+function unionCubes(items){
+  const out=[];for(const c of items){out.push(...subtractMany([c],out));if(out.length>LIMITS.pieces)throw new AnalysisLimit('Address-set complexity limit reached.');}return out;
+}
+function prefixOf(m){let zeros=false,n=0;for(let i=31;i>=0;i--){if((m>>>i)&1){if(zeros)return null;n++;}else zeros=true;}return n;}
+function maskFor(p){return p===0?0:(U32<<(32-p))>>>0;}
+function cidr(s){const m=String(s).match(/^([\d.]+)\/(\d{1,2})$/);if(!m||+m[2]>32)return null;const n=ipInt(m[1]);return n===null?null:cube(n,maskFor(+m[2]));}
+function addressLabel(c){
+  const p=prefixOf(c.m);if(p!==null)return `${ipText(c.v)}/${p}`;
+  const vs=ipText(c.v).split('.'), ms=ipText(c.m).split('.').map(Number);
+  if(ms.every(x=>x===0||x===255))return vs.map((x,i)=>ms[i]===0?'*':x).join('.');
+  return `${ipText(c.v)} · wildcard ${ipText((~c.m)>>>0)}`;
+}
+function addressSize(c){let n=c.m,bits=0;while(n){n=(n&(n-1))>>>0;bits++;}return 2**(32-bits);}
+function sizeOf(parts){return parts.reduce((n,c)=>n+addressSize(c),0);}
+// Dimension 7 records whether TCP ACK or RST is present; it is not connection state.
+const ALL_INTERVALS=[[0,255],[0,65535],[0,65535],[0,255],[0,255],[0,1]];
+function space(s=ANY,d=ANY){return [s,d,...ALL_INTERVALS.map(x=>x.slice())];}
+function spaceIntersect(a,b){
+  const out=[];for(let i=0;i<a.length;i++){
+    if(i<2){const c=intersect(a[i],b[i]);if(!c)return null;out.push(c);}
+    else{const lo=Math.max(a[i][0],b[i][0]),hi=Math.min(a[i][1],b[i][1]);if(lo>hi)return null;out.push([lo,hi]);}
+  }return out;
+}
+function cutSpace(a,hit){
+  const out=[],rest=a.slice();
+  for(let i=0;i<a.length;i++){
+    if(i<2){for(const p of subtract(rest[i],hit[i])){const r=rest.slice();r[i]=p;out.push(r);}}
+    else{
+      if(rest[i][0]<hit[i][0]){const r=rest.slice();r[i]=[rest[i][0],hit[i][0]-1];out.push(r);}
+      if(rest[i][1]>hit[i][1]){const r=rest.slice();r[i]=[hit[i][1]+1,rest[i][1]];out.push(r);}
+    }rest[i]=hit[i];
+  }return out;
+}
+const PROTOCOLS={ip:null,icmp:1,igmp:2,ipinip:4,tcp:6,egp:8,igp:9,udp:17,rdp:27,ipv6:41,gre:47,esp:50,ah:51,ahp:51,icmp6:58,'ipv6-icmp':58,eigrp:88,ospf:89,nos:94,pim:103,pcp:108,vrrp:112,sctp:132};
+const COMMON_PORTS={echo:7,discard:9,daytime:13,chargen:19,'ftp-data':20,ftp:21,ssh:22,telnet:23,smtp:25,time:37,nameserver:42,whois:43,tacacs:49,domain:53,dns:53,bootps:67,bootpc:68,tftp:69,gopher:70,finger:79,www:80,http:80,hostname:101,pop2:109,pop3:110,sunrpc:111,ident:113,auth:113,nntp:119,ntp:123,'netbios-ns':137,'netbios-dgm':138,'netbios-ss':139,imap:143,imap4:143,snmp:161,snmptrap:162,'snmp-trap':162,bgp:179,irc:194,ldap:389,https:443,'microsoft-ds':445,isakmp:500,lpd:515,talk:517,ntalk:518,rip:520,submission:587,ldaps:636,rsync:873,ftps:990,imaps:993,pop3s:995,msrpc:135,'non500-isakmp':4500};
+const TCP_PORTS={exec:512,login:513,cmd:514,uucp:540,klogin:543,kshell:544};
+const UDP_PORTS={biff:512,syslog:514,who:513,mobileip:434};
+const ICMP={
+  'echo-reply':[0,null],unreachable:[3,null],'net-unreachable':[3,0],'host-unreachable':[3,1],
+  'protocol-unreachable':[3,2],'port-unreachable':[3,3],'packet-too-big':[3,4],
+  'source-route-failed':[3,5],'network-unknown':[3,6],'host-unknown':[3,7],
+  'host-isolated':[3,8],'dod-net-prohibited':[3,9],'dod-host-prohibited':[3,10],
+  'net-tos-unreachable':[3,11],'host-tos-unreachable':[3,12],'administratively-prohibited':[3,13],
+  'host-precedence-unreachable':[3,14],'precedence-unreachable':[3,15],
+  'source-quench':[4,null],redirect:[5,null],'net-redirect':[5,0],'host-redirect':[5,1],
+  'net-tos-redirect':[5,2],'host-tos-redirect':[5,3],echo:[8,null],
+  'router-advertisement':[9,null],'router-solicitation':[10,null],
+  'time-exceeded':[11,null],'ttl-exceeded':[11,0],'reassembly-timeout':[11,1],
+  'parameter-problem':[12,null],'general-parameter-problem':[12,0],'option-missing':[12,1],
+  'no-room-for-option':[12,2],timestamp:[13,null],'timestamp-reply':[14,null],
+  'information-request':[15,null],'information-reply':[16,null],'mask-request':[17,null],'mask-reply':[18,null],traceroute:[30,null]
+};
+const TOP_LEVEL=/^(?:ip|ipv6|hostname|line|router|vlan|vrf|snmp-server|ntp|logging|aaa|username|banner|spanning-tree|service|class-map|policy-map|route-map|crypto|control-plane|mac|boot|version|track|archive|radius|tacacs|cdp|lldp|errdisable|redundancy|key|dot1x|device-tracking|monitor|license|clock|enable|alias)\s/i;
+function cleanLine(s){return s.trim().replace(/\s+\([\d,]+\s+matches?\)/ig,'').trim();}
+function readAddress(t,pos,issues){
+  const a=t[pos];
+  if(a==='any'||a==='any4')return {c:ANY,next:pos+1,known:true};
+  if(a==='host'){const n=ipInt(t[pos+1]);if(n===null){issues.push('Invalid IPv4 host.');return {c:ANY,next:pos+2,known:false};}return {c:cube(n,U32),next:pos+2,known:true};}
+  if(a==='object'||a==='object-group'){issues.push(`Unresolved ${a} ${t[pos+1]||''}.`);return {c:ANY,next:pos+2,known:false};}
+  if(a?.includes('/')){const c=cidr(a);if(!c)issues.push(`Invalid IPv4 prefix ${a}.`);return {c:c||ANY,next:pos+1,known:!!c};}
+  const n=ipInt(a);if(n!==null){
+    if(/^\d+\.\d+\.\d+\.\d+$/.test(t[pos+1]||'')){
+      const w=ipInt(t[pos+1]);if(w===null)issues.push(`Invalid wildcard ${t[pos+1]}.`);
+      return {c:w===null?ANY:cube(n,(~w)>>>0),next:pos+2,known:w!==null};
+    }return {c:cube(n,U32),next:pos+1,known:true};
+  }
+  issues.push(`Unrecognized IPv4 address '${a||'(missing)'}'.`);return {c:ANY,next:pos+1,known:false};
+}
+function portNumber(s,proto){
+  if(/^\d+$/.test(s||'')){const n=+s;return n<=65535?n:null;}
+  return (proto===6?TCP_PORTS[s]:UDP_PORTS[s])??COMMON_PORTS[s]??null;
+}
+function readPorts(t,pos,proto,issues){
+  const op=t[pos],full=[[0,65535]];if(!['eq','neq','lt','gt','range'].includes(op))return {intervals:full,next:pos};
+  const first=portNumber(t[pos+1],proto);if(first===null){issues.push(`Unknown or platform-dependent port '${t[pos+1]||''}'; use its numeric value.`);return {intervals:full,next:pos+(op==='range'?3:2)};}
+  if(op==='range'){
+    const last=portNumber(t[pos+2],proto);if(last===null||last<first){issues.push('Invalid port range.');return {intervals:full,next:pos+3};}return {intervals:[[first,last]],next:pos+3};
+  }
+  if(op==='lt')return {intervals:first?[[0,first-1]]:[],next:pos+2};
+  if(op==='gt')return {intervals:first<65535?[[first+1,65535]]:[],next:pos+2};
+  let next=pos+2,values=[first];
+  // IOS XE multi-port eq lists are expanded into disjoint interval variants.
+  while(next<t.length&&portNumber(t[next],proto)!==null){values.push(portNumber(t[next],proto));next++;}
+  values=[...new Set(values)].sort((a,b)=>a-b);
+  if(op==='eq')return {intervals:values.map(n=>[n,n]),next};
+  let lo=0;const out=[];for(const n of values){if(lo<n)out.push([lo,n-1]);lo=n+1;}if(lo<=65535)out.push([lo,65535]);return {intervals:out,next};
+}
+function parseRule(raw,line,type){
+  let text=cleanLine(raw).replace(/,\s*wildcard bits\s+/ig,' '),seq=null;const sn=text.match(/^(\d+)\s+(.+)$/);if(sn){seq=+sn[1];text=sn[2];}
+  if(/^remark\b/i.test(text))return null;
+  const t=text.toLowerCase().split(/\s+/),issues=[],r={original:raw.trim(),text,seq,line,action:t[0],issues,src:null,dst:null,variants:[],index:0};
+  if(!['permit','deny'].includes(t[0])){issues.push(`Unsupported ACL statement: ${text}`);r.variants=[space()];return r;}
+  let i=1,p=null;
+  if(type!=='standard'){
+    const token=t[i++];if(token==='object-group'){issues.push(`Unresolved protocol object-group ${t[i++]||''}.`);}
+    else if(Object.prototype.hasOwnProperty.call(PROTOCOLS,token))p=PROTOCOLS[token];
+    else if(/^\d+$/.test(token||'')&&+token<=255)p=+token;
+    else issues.push(`Unsupported IPv4 protocol '${token||''}'.`);
+  }
+  const src=readAddress(t,i,issues);i=src.next;r.src=src.known?src.c:null;
+  let sport={intervals:[[0,65535]]},dport={intervals:[[0,65535]]};
+  if(p===6||p===17){sport=readPorts(t,i,p,issues);i=sport.next;}
+  let dst={c:ANY,known:true};if(type!=='standard'){dst=readAddress(t,i,issues);i=dst.next;}r.dst=dst.known?dst.c:null;
+  if(p===6||p===17){dport=readPorts(t,i,p,issues);i=dport.next;}
+  const base=space(src.c,dst.c);if(p!==null)base[2]=[p,p];
+  if(p===1&&i<t.length&&!['log','log-input','time-range','fragments','dscp','tos','precedence'].includes(t[i])){
+    const token=t[i];if(Object.prototype.hasOwnProperty.call(ICMP,token)){
+      const [ty,co]=ICMP[token];base[5]=[ty,ty];if(co!==null)base[6]=[co,co];i++;
+    }else if(/^\d+$/.test(token)&&+token<=255){
+      base[5]=[+token,+token];i++;
+      if(/^\d+$/.test(t[i]||'')){if(+t[i]>255)issues.push('Invalid ICMP code.');else base[6]=[+t[i],+t[i]];i++;}
+    }
+  }
+  while(i<t.length){const q=t[i++];
+    if(q==='log'||q==='log-input')continue;
+    if(q==='established'&&p===6){base[7]=[1,1];continue;}
+    issues.push(`Unsupported condition '${[q,...t.slice(i)].join(' ')}'.`);break;
+  }
+  r.protocol=p;
+  for(const sp of sport.intervals)for(const dp of dport.intervals){const a=base.slice();a[3]=sp;a[4]=dp;r.variants.push(a);}
+  return r;
+}
+function parseConfig(text){
+  if(text.length>LIMITS.input)throw new Error('Paste is larger than 5 MB. Analyze a smaller device configuration.');
+  const lines=text.replace(/\x1b\[[0-9;]*[A-Za-z]/g,'').split(/\r?\n/),ivs=new Map(),blocks=new Map(),warnings=[],errors=[];
+  let active=null,acl=null,device=null;const devices=new Set(),legacyRuns=new Map(),vlanCopies=new Map();let lastLegacy=null;
+  // Numbered ACL lines may be split by '!' or other blocks; a boundary only starts a new copy when the
+  // same ACL restarts with its first entry (a repeated paste). A device prompt always starts fresh.
+  const markLegacyBoundary=()=>{for(const run of legacyRuns.values())run.afterBoundary=true;};
+  const ensureAcl=(name,type)=>{if(!blocks.has(name))blocks.set(name,{name,type,snapshots:[],fatal:[],rules:[]});const b=blocks.get(name);if(b.type!==type)b.fatal.push('Conflicting standard/extended ACL definitions.');return b;};
+  const beginAcl=(name,type,line)=>{const b=ensureAcl(name,type),snapshot={name,type,line,entries:[],fatal:b.fatal};b.snapshots.push(snapshot);return snapshot;};
+  for(let idx=0;idx<lines.length;idx++){
+    const raw=lines[idx],s=raw.trim();if(!s)continue;const prevLegacy=lastLegacy;lastLegacy=null;
+    const prompt=s.match(/^([\w.:-]+)(?:\([^)]*\))?[#>]\s*(.*)$/);
+    if(prompt){devices.add(prompt[1]);device=prompt[1];active=null;acl=null;legacyRuns.clear();continue;}
+    const iv=s.match(/^interface\s+vlan(\d+)\s*$/i);
+    if(iv){
+      const id=+iv[1];acl=null;if(id<1||id>4094){errors.push(`Line ${idx+1}: invalid VLAN ${id}.`);active=null;continue;}
+      active={id,key:`v:${id}`,kind:'vlan',name:'',vrf:'default',subnets:[],groups:{in:[],out:[]},noGroups:{in:false,out:false},bindings:{},problems:[],device};
+      if(!ivs.has(id))ivs.set(id,active);if(!vlanCopies.has(id))vlanCopies.set(id,[]);vlanCopies.get(id).push({record:active,line:idx+1});markLegacyBoundary();continue;
+    }
+    let m=s.match(/^(Extended|Standard) IP access list\s+(\S+)(?:\s+\(.*\))?$/i)||s.match(/^ip access-list\s+(extended|standard)\s+(\S+)$/i);
+    if(m){active=null;acl=beginAcl(m[2],m[1].toLowerCase(),idx+1);markLegacyBoundary();continue;}
+    m=s.match(/^access-list\s+(\S+)\s+(.+)$/i);
+    if(m){
+      const n=+m[1],standard=Number.isInteger(n)&&((n>=1&&n<=99)||(n>=1300&&n<=1999));
+      const type=standard?'standard':'extended';let run=legacyRuns.get(m[1]);
+      if(run?.afterBoundary&&run.entries[0]?.raw===m[2])run=null;
+      if(!run){run=beginAcl(m[1],type,idx+1);legacyRuns.set(m[1],run);}
+      run.afterBoundary=false;run.entries.push({raw:m[2],line:idx+1});lastLegacy=run;active=null;acl=null;continue;
+    }
+    if(s==='!'||s==='end'||s==='exit'||/^interface\s+/i.test(s)){active=null;acl=null;markLegacyBoundary();continue;}
+    if(/--More--/i.test(s)){
+      const message=`Line ${idx+1}: paginated block may be incomplete. Paste the complete, unpaginated block.`;
+      if(acl)acl.fatal.push(message);else if(active)active.problems.push(message);else if(prevLegacy)prevLegacy.fatal.push(message);else warnings.push(message);
+      continue;
+    }
+    if(active){
+      m=s.match(/^description\s+(.+)/i);if(m){active.name=m[1];continue;}
+      m=s.match(/^(?:ip vrf forwarding|vrf forwarding)\s+(\S+)/i);if(m){active.vrf=m[1];continue;}
+      m=s.match(/^ip address\s+(\S+)\s+(\S+)(?:\s+(secondary))?$/i);
+      if(m){
+        const n=ipInt(m[1]),mask=ipInt(m[2]),p=mask===null?null:prefixOf(mask);
+        if(n===null||p===null){active.problems.push(`Invalid SVI address/mask ${m[1]} ${m[2]}.`);errors.push(`VLAN ${active.id}: ${active.problems.at(-1)}`);continue;}
+        const c=cube(n,mask);if(!active.subnets.some(x=>cubeKey(x)===cubeKey(c)))active.subnets.push({...c,text:addressLabel(c),ip:m[1],secondary:!!m[3]});continue;
+      }
+      if(/^ip address\b/i.test(s)){active.problems.push(`Unsupported SVI address configuration: ${s}`);continue;}
+      m=s.match(/^ip access-group\s+(\S+)\s+(in|out)\s*$/i);
+      if(m){const dir=m[2].toLowerCase();if(!active.groups[dir].some(x=>x===m[1]))active.groups[dir].push(m[1]);continue;}
+      m=s.match(/^no ip access-group(?:\s+(\S+))?\s+(in|out)\s*$/i);if(m){active.noGroups[m[2].toLowerCase()]=true;continue;}
+      if(/^ip access-group\b/i.test(s)){active.problems.push(`Unrecognized ACL attachment: ${s}`);continue;}
+      if(s==='shutdown'){warnings.push(`VLAN ${active.id} is shut down; results show its ACLs only.`);continue;}
+      continue;
+    }
+    if(acl){
+      if(/^(?:\d+\s+)?(?:permit|deny|remark|evaluate|dynamic|no)\b/i.test(s)){acl.entries.push({raw:s,line:idx+1});continue;}
+      if(/^(?:statistics|counters|[\d,]+\s+matches?|total\s+)/i.test(s))continue;
+      // An unindented global command ends the block (e.g. `show run | section` output without '!').
+      // Wrapped ACE fragments (eq 443, host x, time-range, object-group) never match, so they still fail closed.
+      if(!/^\s/.test(raw)&&TOP_LEVEL.test(s)){acl=null;continue;}
+      acl.fatal.push(`Line ${idx+1}: unrecognized or wrapped ACL line '${s}'. Paste complete rules on individual lines.`);
+      continue;
+    }
+  }
+  if(devices.size>1)warnings.push('More than one device pasted; analyze one at a time.');
+  for(const [id,copies] of vlanCopies){
+    const signature=v=>JSON.stringify({vrf:v.vrf,subnets:v.subnets.map(s=>[s.v,s.m,!!s.secondary]).sort(),groups:{in:[...v.groups.in].sort(),out:[...v.groups.out].sort()},noGroups:v.noGroups,problems:v.problems});
+    if(copies.some(c=>signature(c.record)!==signature(copies[0].record))){const message=`Two different copies (lines ${copies.map(c=>c.line).join(', ')}); paste one.`;ivs.get(id).problems.push(message);warnings.push(`VLAN ${id}: ${message}`);}
+  }
+  const applied=new Set([...vlanCopies.values()].flatMap(copies=>copies.flatMap(c=>[...c.record.groups.in,...c.record.groups.out])));
+  for(const b of blocks.values()){
+    if(!applied.has(b.name)){b.rules=b.snapshots.flatMap(s=>s.entries.map(e=>({original:e.raw})));b.fatal=[];b.ignored=true;delete b.snapshots;continue;}
+    const snapshots=b.snapshots.map(snapshot=>{
+      const rules=snapshot.entries.map(x=>parseRule(x.raw,x.line,b.type)).filter(Boolean),seqs=new Map(),kept=[];
+      const signature=r=>JSON.stringify([r.action,r.variants,r.issues.length?r.text:'']);
+      for(const r of rules){if(r.seq!==null&&seqs.has(r.seq)){if(seqs.get(r.seq)!==signature(r))b.fatal.push(`Sequence ${r.seq} defined twice, differently (line ${snapshot.line}).`);continue;}if(r.seq!==null)seqs.set(r.seq,signature(r));kept.push(r);}
+      if(kept.some(r=>r.seq===null)&&kept.some(r=>r.seq!==null))b.fatal.push(`Numbered and unnumbered lines mixed (line ${snapshot.line}); order unclear.`);
+      if(kept.every(r=>r.seq!==null))kept.sort((a,b)=>a.seq-b.seq);
+      // Redundant consecutive identical ACEs do not change policy; preserve other order.
+      const ordered=kept.filter((r,i)=>!i||signature(r)!==signature(kept[i-1]));
+      if(!ordered.length)b.fatal.push(`Empty ACL block (line ${snapshot.line}).`);
+      return {line:snapshot.line,rules:ordered,key:JSON.stringify(ordered.map(signature))};
+    });
+    const first=snapshots[0];
+    for(const other of snapshots.slice(1))if(other.key!==first.key)b.fatal.push(`Two different copies (lines ${first.line} and ${other.line}); paste one.`);
+    b.rules=first?.rules||[];b.rules.forEach((r,i)=>r.index=i);b.definitionLines=snapshots.map(x=>x.line);
+    for(const snap of snapshots)for(const r of snap.rules)for(const issue of r.issues)warnings.push(`${b.name}, line ${r.line}: ${issue}`);
+    b.fatal=[...new Set(b.fatal)];for(const issue of b.fatal)warnings.push(`${b.name}: ${issue}`);delete b.snapshots;
+  }
+  const used=new Set();
+  for(const v of ivs.values()){
+    if(v.subnets.filter(s=>!s.secondary).length>1)v.problems.push('Two primary subnets; paste one interface block.');
+    v.addresses=unionCubes(v.subnets);v.text=v.subnets.map(s=>s.text).join(', ');
+    for(const dir of ['in','out']){
+      const names=v.groups[dir];for(const name of names)used.add(name);let binding={state:'none',name:null,acl:null,reason:'No '+dir.toUpperCase()+' ACL attachment in the pasted SVI.'};
+      if(names.length>1||(names.length&&v.noGroups[dir]))binding={state:'review',kind:'conflicting-attachment',name:names.join(', '),reason:`Conflicting ${dir.toUpperCase()} ACL attachments: ${names.join(', ')}${v.noGroups[dir]?' plus a no ip access-group statement':''}. Paste one current interface block.`};
+      else if(names.length){const name=names[0],a=blocks.get(name);used.add(name);binding=a?{state:'acl',name,acl:a}:{state:'review',kind:'missing-definition',name,reason:`ACL ${name} is applied but not in the paste.`};}
+      if(binding.state==='review')warnings.push(`VLAN ${v.id} ${dir.toUpperCase()}: ${binding.reason}`);
+      v.bindings[dir]=binding;
+    }
+    if(devices.size>1)v.problems.push('More than one device pasted; analyze one at a time.');
+  }
+  const unattached=[...blocks.values()].filter(b=>!used.has(b.name));
+  const vlans=[...ivs.values()].sort((a,b)=>a.id-b.id).filter(v=>{
+    if(!v.addresses.length){errors.push(`VLAN ${v.id} has no IP address, so it isn't in the matrix.`);return false;}return true;
+  });
+  if(vlans.length>LIMITS.vlans)throw new Error(`More than ${LIMITS.vlans} VLANs. Analyze a smaller device configuration.`);
+  return {vlans,acls:[...blocks.values()],unattached,warnings:[...new Set(warnings)],errors:[...new Set(errors)]};
+}
+function discoverTargets(parsed){
+  const known=unionCubes(parsed.vlans.flatMap(v=>v.addresses)),map=new Map();
+  const attached=new Set(parsed.vlans.flatMap(v=>Object.values(v.bindings).filter(b=>b.state==='acl').map(b=>b.name)));
+  for(const acl of parsed.acls.filter(a=>attached.has(a.name)&&!a.fatal.length))for(const r of acl.rules){
+    if(!r.dst||(r.dst.m===0&&r.action!=='deny'))continue;
+    const key=cubeKey(r.dst);
+    if(!map.has(key))map.set(key,{kind:'target',key:`t:${key}`,cube:r.dst,text:r.dst.m?addressLabel(r.dst):'Any IPv4',refs:[],denyReferenced:false,addresses:[r.dst]});
+    const t=map.get(key);t.denyReferenced||=r.action==='deny';
+    const bindings=parsed.vlans.flatMap(v=>['in','out'].filter(dir=>v.bindings[dir].state==='acl'&&v.bindings[dir].name===acl.name).map(dir=>({vlan:v.id,dir})));
+    for(const binding of bindings)t.refs.push({...binding,name:acl.name,original:r.original,action:r.action});
+  }
+  if(map.size>LIMITS.targets)throw new Error('Too many distinct ACL destinations.');
+  const targets=[];
+  for(const t of map.values()){
+    const exact=parsed.vlans.filter(v=>!subtractMany(v.addresses,[t.cube]).length&&!subtractMany([t.cube],v.addresses).length);
+    if(t.denyReferenced){
+      t.group='deny';
+      if(exact.length){for(const v of exact){v.group='deny';v.refs=t.refs;}continue;}
+    }else{
+      t.addresses=subtractMany([t.cube],known);if(!t.addresses.length)continue;
+      t.group='external';t.kind='external';
+    }
+    t.excludedVlans=t.kind==='external'?parsed.vlans.filter(v=>v.addresses.some(a=>intersect(a,t.cube))).map(v=>v.id):[];
+    const equivalent=t.kind==='external'?targets.find(x=>x.kind==='external'&&sizeOf(x.addresses)===sizeOf(t.addresses)&&!subtractMany(t.addresses,x.addresses).length):null;
+    if(equivalent){equivalent.refs.push(...t.refs);equivalent.aliases=[...(equivalent.aliases||[equivalent.text]),t.text];}
+    else targets.push(t);
+  }
+  const other=subtractMany([ANY],[...known,...[...map.values()].map(t=>t.cube)]);
+  if(other.length)targets.push({kind:'external',group:'external',key:'t:other',text:'Other IPv4',addresses:other,refs:[],excludedVlans:[],other:true});
+  return targets.sort((a,b)=>(a.cube?.v??Infinity)-(b.cube?.v??Infinity)||(a.cube?.m??0)-(b.cube?.m??0));
+}
+function appsFor(src,dst){
+  const apps=[{vlan:src.id,dir:'in',binding:src.bindings.in}];
+  if(dst.kind==='vlan')apps.push({vlan:dst.id,dir:'out',binding:dst.bindings.out});return apps;
+}
+function exampleOf(a){
+  const choose=(r,preferred)=>r[0]<=preferred&&preferred<=r[1]?preferred:r[0];
+  const host=c=>ipText((c.v|((~c.m)&1))>>>0);
+  const proto=[6,17,1,47].find(n=>a[2][0]<=n&&n<=a[2][1])??a[2][0];
+  return {src:host(a[0]),dst:host(a[1]),proto,sport:choose(a[3],49152),dport:choose(a[4],443),icmpType:choose(a[5],8),icmpCode:choose(a[6],0),established:!!a[7][0]};
+}
+function evaluatePath(src,dst,packet=null){
+  const result={status:'review',allowed:false,denied:false,uncertain:false,reasons:[],issues:[],examples:{},operations:0,traffic:{allowed:[],denied:[],unknown:[]},diagnostics:[]};
+  if(dst.kind==='vlan'&&src.id===dst.id)return {...result,status:'same'};
+  if(src.problems.length||(dst.kind==='vlan'&&dst.problems.length)){result.issues=[...src.problems,...(dst.problems||[])];return finalizePath(result,src,dst);}
+  if(dst.kind==='vlan'&&src.vrf!==dst.vrf)result.routingNote=`VRF ${src.vrf||'default'} → ${dst.vrf||'default'}, routing not confirmed`;
+  // Reused subnets in different VRFs are separate address spaces; only same-VRF overlap is ambiguous.
+  if(dst.kind==='vlan'&&src.vrf===dst.vrf&&src.addresses.some(a=>dst.addresses.some(b=>intersect(a,b)))){result.issues=['Source and destination subnets overlap; path unclear.'];return finalizePath(result,src,dst);}
+  const apps=appsFor(src,dst),evidence=new Map();let denied=false,ops=0;
+  const add=(stage,rule,action,region,note)=>{
+    const key=`${stage}|${rule?.index??-1}|${action}|${note||''}`;
+    if(!evidence.has(key))evidence.set(key,{stage,vlan:apps[stage].vlan,dir:apps[stage].dir,name:apps[stage].binding.name||'',issueKind:action==='review'?(rule?'unsupported-rule':apps[stage].binding.kind||'incomplete-input'):null,rule:rule?{seq:rule.seq,line:rule.line,original:rule.original,index:rule.index}:null,action,note:note||'',example:region?exampleOf(region):null});
+  };
+  let states=[];
+  try{
+    for(const s of src.addresses)for(const d of dst.addresses){const a=packet?spaceIntersect(space(s,d),packet):space(s,d);if(a)states.push({a,unknown:false});if(states.length>LIMITS.pieces)throw new AnalysisLimit('Address-set complexity limit reached.');}
+    for(let stage=0;stage<apps.length;stage++){
+      if(!states.length)break;
+      const b=apps[stage].binding;
+      if(b.state==='none'){add(stage,null,'open',states[0].a,b.reason);continue;}
+      if(b.state==='review'||b.acl.fatal.length){
+        const note=b.state==='review'?b.reason:b.acl.fatal.join(' ');
+        add(stage,null,'review',states[0].a,note);states=states.map(x=>({a:x.a,unknown:true}));continue;
+      }
+      let pending=states,passed=[];
+      for(const rule of b.acl.rules){
+        if(!pending.length)break;
+        const action=rule.issues.length?'review':rule.action;
+        for(const variant of rule.variants){
+          const next=[];
+          for(const item of pending){
+            if(++ops>LIMITS.operations)throw new AnalysisLimit('Rule-space complexity limit reached. Result is not approximated.');
+            const hit=spaceIntersect(item.a,variant);
+            if(!hit){next.push(item);continue;}
+            add(stage,rule,action,hit,rule.issues.join(' '));
+            for(const a of cutSpace(item.a,hit))next.push({a,unknown:item.unknown});
+            if(action==='deny'){result.traffic.denied.push(hit);denied=true;if(!result.examples.deny)result.examples.deny=exampleOf(hit);}
+            else passed.push({a:hit,unknown:item.unknown||action==='review'});
+            if(next.length+passed.length>LIMITS.pieces)throw new AnalysisLimit('Rule-space complexity limit reached. Result is not approximated.');
+          }
+          pending=next;if(!pending.length)break;
+        }
+      }
+      if(pending.length){result.traffic.denied.push(...pending.map(x=>x.a));denied=true;add(stage,null,'deny',pending[0].a,'Implicit deny (no line matched).');if(!result.examples.deny)result.examples.deny=exampleOf(pending[0].a);}
+      states=passed;
+    }
+    result.uncertain=states.some(x=>x.unknown);result.allowed=states.some(x=>!x.unknown);result.denied=denied;
+    if(result.allowed)result.examples.allow=exampleOf(states.find(x=>!x.unknown).a);
+    if(result.uncertain)result.examples.review=exampleOf(states.find(x=>x.unknown).a);
+    result.status=result.uncertain?'review':!result.allowed?'deny':denied?'split':apps.every(a=>a.binding.state==='none')?'open':'allow';
+  }catch(e){if(!(e instanceof AnalysisLimit))throw e;result.status='review';result.calculationIncomplete=true;result.issues.push(e.message);}
+  result.traffic.allowed=mergeSpaces(states.filter(x=>!x.unknown).map(x=>x.a));result.traffic.unknown=mergeSpaces(states.filter(x=>x.unknown).map(x=>x.a));result.traffic.denied=mergeSpaces(result.traffic.denied);
+  result.operations=ops;result.reasons=[...evidence.values()];return finalizePath(result,src,dst);
+}
+// Exact set subtraction is shared by evaluation-summary verification and tests.
+function differenceSpaces(parts,cuts,budget={operations:0,max:1500000}){
+ for(const cut of cuts){const next=[];for(const part of parts){if(++budget.operations>budget.max)throw new AnalysisLimit('Permission summary verification limit reached.');const hit=spaceIntersect(part,cut);next.push(...(hit?cutSpace(part,hit):[part]));if(next.length>LIMITS.pieces)throw new AnalysisLimit('Permission summary size limit reached.');}parts=next;if(!parts.length)break;}return parts;
+}
+const addressNormalizationCache=new Map();
+function normalizeAddresses(items){
+ if(items.length<2)return items.map(c=>cube(c.v,c.m));
+ const key=items.map(c=>cubeKey(c)).sort().join(';');if(addressNormalizationCache.has(key))return addressNormalizationCache.get(key);
+ let parts=unionCubes(items),changed=true;
+ while(changed){changed=false;const map=new Map(parts.map(c=>[cubeKey(c),c]));for(const c of parts){if(!map.has(cubeKey(c)))continue;for(let i=0;i<32;i++){const bit=(2**i)>>>0;if(!(c.m&bit))continue;const sibling=cube((c.v^bit)>>>0,c.m),key=cubeKey(sibling);if(map.has(key)){map.delete(cubeKey(c));map.delete(key);const parent=cube(c.v,(c.m&~bit)>>>0);map.set(cubeKey(parent),parent);changed=true;break;}}}parts=[...map.values()];}
+ parts.sort((a,b)=>a.v-b.v||a.m-b.m);if(addressNormalizationCache.size>5000)addressNormalizationCache.clear();addressNormalizationCache.set(key,parts);return parts;
+}
+// Convert cubes to exact contiguous intervals with a bounded presentation budget.
+// If sparse wildcards are too complex, retain their exact wildcard notation.
+function addressRanges(items,maxRanges=128){
+ const pending=items.map(c=>cube(c.v,c.m)),ranges=[];
+ while(pending.length){
+  const c=pending.pop();
+  if(prefixOf(c.m)!==null)ranges.push([c.v,c.v+addressSize(c)-1]);
+  else{let bit=31;while(bit>=0&&((c.m>>>bit)&1))bit--;const flag=2**bit;pending.push(cube(c.v,(c.m|flag)>>>0),cube((c.v|flag)>>>0,(c.m|flag)>>>0));}
+  if(ranges.length+pending.length>maxRanges)return null;
+ }
+ ranges.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);const merged=[];
+ for(const r of ranges){const last=merged.at(-1);if(last&&r[0]<=last[1]+1)last[1]=Math.max(last[1],r[1]);else merged.push(r.slice());}
+ return merged;
+}
+function addressComplexity(parts){const ranges=addressRanges(parts,32);return (ranges?ranges.length:parts.length+8)+Math.log2(1+sizeOf(parts))*.02;}
+const permissionFields=['protocol','sourcePorts','destinationPorts','icmpTypes','icmpCodes','tcpFlags'];
+function permissionRecord(a,sourceScope,destinationScope){return {sources:normalizeAddresses(sourceScope.map(s=>intersect(s,a[0])).filter(Boolean)),destinations:normalizeAddresses(destinationScope.map(d=>intersect(d,a[1])).filter(Boolean)),...Object.fromEntries(permissionFields.map((key,i)=>[key,a[i+2].slice()]))};}
+function permissionSpaces(p){return p.sources.flatMap(s=>p.destinations.map(d=>[s,d,...permissionFields.map(key=>p[key])]));}
+function coalescePermissions(records){
+ let out=records.filter(p=>p.sources.length&&p.destinations.length).map(p=>({...p,sources:normalizeAddresses(p.sources),destinations:normalizeAddresses(p.destinations)}));
+ // Merge exactly one address dimension at a time. Never invent source/destination cross-pairs.
+ for(let round=0;round<2;round++)for(const dimension of ['sources','destinations']){const groups=new Map();for(const p of out){const key=JSON.stringify([permissionFields.map(f=>p[f]),p[dimension==='sources'?'destinations':'sources']]);if(!groups.has(key))groups.set(key,{...p,[dimension]:[]});groups.get(key)[dimension].push(...p[dimension]);}out=[...groups.values()].map(p=>({...p,[dimension]:normalizeAddresses(p[dimension])}));}
+ return out;
+}
+function finishSummary(records,sourceScope,destinationScope,complete,reason=''){
+ const source=normalizeAddresses(sourceScope),destination=normalizeAddresses(destinationScope);
+ const permissions=coalescePermissions(records).map(p=>({...p,sourceAll:!subtractMany(source,p.sources).length,destinationAll:!subtractMany(destination,p.destinations).length}));
+ if(permissions.length>24)return {permissions:[],complete:false,reason:'The exact policy requires more than 24 separate permission groups. Inspect the applicable rules or use packet lookup.'};
+ return {permissions,complete,reason};
+}
+// Exact, dimension-wise consolidation. No protocol/port sampling is used.
+function mergeSpaces(parts){
+ let out=parts.map(a=>[cube(a[0].v,a[0].m),cube(a[1].v,a[1].m),...a.slice(2).map(r=>r.slice())]);
+ for(let round=0;round<8;round++){
+  const before=out.length;
+  for(let dim=0;dim<8;dim++){
+   const groups=new Map();
+   for(const a of out){const key=JSON.stringify(a.filter((_,i)=>i!==dim));if(!groups.has(key))groups.set(key,{a,values:[]});groups.get(key).values.push(a[dim]);}
+   out=[];
+   for(const {a,values} of groups.values()){
+    let merged;
+    if(dim<2)merged=normalizeAddresses(values);
+    else{merged=[];for(const r of values.sort((x,y)=>x[0]-y[0]||x[1]-y[1])){const last=merged.at(-1);if(last&&r[0]<=last[1]+1)last[1]=Math.max(last[1],r[1]);else merged.push(r.slice());}}
+    for(const value of merged){const item=a.slice();item[dim]=value;out.push(item);}
+   }
+  }
+  if(out.length===before)break;
+ }
+ return out.sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+}
+function recordSet(parts,src,dst){return finishSummary(parts.map(a=>permissionRecord(a,[a[0]],[a[1]])),src.addresses,dst.addresses,true);}
+function policyCost(p){return p.permissions.reduce((n,r)=>n+1+(r.protocol[0]!==r.protocol[1]&&!(r.protocol[0]===0&&r.protocol[1]===255)?30:0)+(r.sourceAll?0:addressComplexity(r.sources)*.2)+(r.destinationAll?0:addressComplexity(r.destinations)*.2),0);}
+function describeSet(parts,opposite,src,dst,templates){
+ const direct=recordSet(parts,src,dst);
+ if(direct.complete&&policyCost(direct)<=2)return direct;
+ const budget={operations:0,max:300000};
+ try{
+  const projections=parts.slice(0,128).map(a=>space(a[0],a[1]));
+  const candidates=[...new Map([...templates,...projections].map(a=>[JSON.stringify(a),a])).values()].sort((a,b)=>(b[2][1]-b[2][0])-(a[2][1]-a[2][0]));
+  let remaining=parts;const records=[];
+  for(const a of candidates.slice(0,512)){
+   if(!remaining.length)break;if(!remaining.some(p=>spaceIntersect(p,a)))continue;
+   const record=permissionRecord(a,src.addresses,dst.addresses),scoped=permissionSpaces(record);
+   if(scoped.length&&!scoped.some(a=>opposite.some(b=>spaceIntersect(a,b)))){records.push(record);remaining=differenceSpaces(remaining,scoped,budget);}
+  }
+  records.push(...mergeSpaces(remaining).map(a=>permissionRecord(a,[a[0]],[a[1]])));
+  const compact=finishSummary(records,src.addresses,dst.addresses,true);
+  if(compact.complete&&(!direct.complete||policyCost(compact)<policyCost(direct))){
+   const represented=compact.permissions.flatMap(permissionSpaces);
+   if(!represented.some(a=>opposite.some(b=>spaceIntersect(a,b)))&&!differenceSpaces(parts,represented,budget).length)return compact;
+  }
+ }catch(e){if(!(e instanceof AnalysisLimit))throw e;}
+ return direct;
+}
+function makePolicy(traffic,src,dst,apps){
+ const straightforward=recordSet(traffic.allowed,src,dst),blocked=recordSet(traffic.denied,src,dst);
+ const simplerBlocked=blocked.complete&&(!straightforward.complete||policyCost(blocked)<policyCost(straightforward));
+ const simplest=simplerBlocked?blocked:straightforward;
+ if(simplest.complete&&policyCost(simplest)<=2)return {...simplest,baseline:simplerBlocked?'permit':'deny',exceptionAction:simplerBlocked?'deny':'permit',kind:'policy'};
+ const templates=[...new Map(apps.flatMap(a=>a.binding.state==='acl'?a.binding.acl.rules.filter(r=>!r.issues.length).flatMap(r=>r.variants):[]).map(a=>[JSON.stringify(a),a])).values()];
+ const allow=describeSet(traffic.allowed,traffic.denied,src,dst,templates);
+ const deny=describeSet(traffic.denied,traffic.allowed,src,dst,templates);
+ const useDeny=deny.complete&&(!allow.complete||policyCost(deny)<policyCost(allow));
+ return {...(useDeny?deny:allow),baseline:useDeny?'permit':'deny',exceptionAction:useDeny?'deny':'permit',kind:'policy'};
+}
+function behaviorSpaces(result,src,dst){
+ // Full source/destination scope is relative; selected host restrictions retain exact addresses.
+ const records=coalescePermissions(mergeSpaces(result.traffic.allowed).map(a=>permissionRecord(a,[a[0]],[a[1]])));
+ return mergeSpaces(records.flatMap(p=>permissionSpaces({...p,sources:subtractMany(src.addresses,p.sources).length?p.sources:[ANY],destinations:subtractMany(dst.addresses,p.destinations).length?p.destinations:[ANY]})));
+}
+function equivalentBehavior(a,b){
+ if(a.status!==b.status)return false;
+ if(a.status==='review')return false;
+ if(['allow','open','deny','same'].includes(a.status))return true;
+ if(a.behaviorKey===b.behaviorKey)return true;
+ try{const budget={operations:0,max:100000};return !differenceSpaces(a.behavior,b.behavior,budget).length&&!differenceSpaces(b.behavior,a.behavior,budget).length;}catch{return false;}
+}
+function groupDestinations(segments){
+ const groups=[];for(const seg of segments){let g=groups.find(g=>equivalentBehavior(g.result,seg.result));if(!g){g={result:seg.result,segments:[]};groups.push(g);}g.segments.push(seg);}
+ return groups.sort((a,b)=>(b.result.status==='review')-(a.result.status==='review')||b.segments.length-a.segments.length);
+}
+function finalizePath(result,src,dst){
+ result.sourceId=src.id;result.attachments=appsFor(src,dst);
+ if(result.calculationIncomplete||(result.status==='review'&&!result.traffic.allowed.length&&!result.traffic.denied.length&&!result.traffic.unknown.length))result.traffic={allowed:[],denied:[],unknown:src.addresses.flatMap(a=>dst.addresses.map(b=>space(a,b)))};
+ const notices=[...result.issues.map(message=>({message,kind:result.calculationIncomplete?'calculation-limit':'incomplete-input'})),...result.reasons.filter(r=>r.action==='review').map(r=>({message:r.note,kind:r.issueKind}))];result.diagnostics=[...new Map(notices.filter(d=>d.message).map(d=>[d.kind+'|'+d.message,d])).values()].map(d=>({...d,source:src.id,destinationId:dst.id??null,destination:dst.kind==='vlan'?'VLAN '+dst.id:dst.text||'Rest (not a VLAN)'}));
+ if(result.status==='split'){result.policy=makePolicy(result.traffic,src,dst,appsFor(src,dst));result.behavior=behaviorSpaces(result,src,dst);result.behaviorKey=JSON.stringify(result.behavior);}
+ return result;
+}
+function evaluateDestination(src,dst,vlans,cache=null){
+ const resolve=(s,d)=>{const key=JSON.stringify([s.key,d.kind,d.id,d.addresses.map(c=>[c.v,c.m])]);if(cache?.has(key))return cache.get(key);const r=evaluatePath(s,d);cache?.set(key,r);return r;};
+ if(dst.kind!=='target')return resolve(src,dst);
+ const segments=[],covered=[];let local=false;
+ // Same-VRF VLANs own their addresses first; another VRF's VLAN only receives addresses not already routed locally.
+ const ordered=[...vlans.filter(v=>v.vrf===src.vrf),...vlans.filter(v=>v.vrf!==src.vrf)];
+ for(const v of ordered){let addresses=normalizeAddresses(v.addresses.flatMap(a=>dst.addresses.map(b=>intersect(a,b)).filter(Boolean)));if(addresses.length&&v.vrf!==src.vrf)addresses=normalizeAddresses(subtractMany(addresses,covered));if(!addresses.length)continue;covered.push(...addresses);if(src.id===v.id){local=true;continue;}segments.push({label:'VLAN '+v.id,destination:{...v,addresses}});}
+ segments.sort((a,b)=>a.destination.id-b.destination.id);
+ const remainder=subtractMany(dst.addresses,covered);if(remainder.length){const rest=`Rest of ${dst.text} (not a VLAN)`;segments.push({label:rest,destination:{kind:'external',addresses:remainder,text:rest}});}
+ const r={sourceId:src.id,status:'same',allowed:false,denied:false,uncertain:false,reasons:[],issues:[],examples:{},diagnostics:[],local,segments,traffic:{allowed:[],denied:[],unknown:[]}};
+ for(let i=0;i<segments.length;i++)for(let j=i+1;j<segments.length;j++)if(segments[i].destination.addresses.some(a=>segments[j].destination.addresses.some(b=>intersect(a,b)))){r.uncertain=true;r.issues.push('Destination VLANs overlap; OUT ACL unclear.');}
+ let allOpen=true;
+ for(const seg of segments){const x=resolve(src,seg.destination);seg.result=x;allOpen&&=x.status==='open';r.allowed||=x.allowed;r.denied||=x.denied;r.uncertain||=x.status==='review';r.diagnostics.push(...x.diagnostics);for(const kind of ['allowed','denied','unknown'])r.traffic[kind].push(...x.traffic[kind]);if(x.routingNote)r.routingNote='Crosses VRFs, routing not confirmed';}
+ if(r.issues.length)r.traffic={allowed:[],denied:[],unknown:src.addresses.flatMap(a=>segments.flatMap(seg=>seg.destination.addresses.map(b=>space(a,b))))};
+ r.diagnostics.push(...r.issues.map(message=>({source:src.id,destination:dst.text,message})));
+ r.status=r.uncertain?'review':!segments.length?'same':!r.allowed?'deny':r.denied?'split':allOpen?'open':'allow';
+ r.groups=groupDestinations(segments);
+ // Segment results are authoritative. The overview never re-evaluates a large combined address set.
+ if(r.status==='split'){
+  if(r.groups.length===1){const policy=r.groups[0].result.policy,scope=normalizeAddresses(segments.flatMap(seg=>seg.destination.addresses));r.policy={...policy,...finishSummary(policy.permissions.map(p=>({...p,sources:p.sourceAll?src.addresses:p.sources,destinations:p.destinationAll?scope:p.destinations})),src.addresses,scope,policy.complete,policy.reason)};}
+  else r.policy={kind:'grouped',baseline:'deny',exceptionAction:'permit',permissions:[],complete:r.groups.every(g=>g.result.status!=='split'||g.result.policy.complete)};
+ }
+ return r;
+}
+
+function columnGroups(vlans,targets){
+ const count=d=>new Set((d.refs||[]).filter(r=>r.action==='deny').map(r=>r.vlan)).size;
+ const address=d=>d.cube?.v??d.addresses[0]?.v??0;
+ // Every VLAN stays in VLAN order under "VLANs" (deny-referenced ones are marked in the header);
+ // the deny group holds only non-VLAN targets, so it no longer absorbs most VLANs in large configs.
+ return {deny:targets.filter(t=>t.group==='deny').sort((a,b)=>count(b)-count(a)||address(a)-address(b)),allowed:vlans,external:targets.filter(t=>t.group==='external')};
+}
+function buildModel(text,progress=()=>{}){
+  const parsed=parseConfig(text),targets=discoverTargets(parsed),results={},cache=new Map();
+  const destinations=[...parsed.vlans,...targets];
+  if(parsed.vlans.length*destinations.length>LIMITS.paths)throw new Error(`More than ${LIMITS.paths.toLocaleString()} matrix cells. Reduce the input.`);
+  for(let i=0;i<parsed.vlans.length;i++){
+    const s=parsed.vlans[i];for(const d of destinations)results[`${s.key}>${d.key}`]=evaluateDestination(s,d,parsed.vlans,cache);
+    progress(i+1,parsed.vlans.length);
+  }
+  return {...parsed,targets,results,groups:columnGroups(parsed.vlans,targets)};
+}
+root.AclEngine={VERSION,LIMITS,ANY,cube,cubeKey,cubeHit,intersect,subtract,subtractMany,unionCubes,ipInt,ipText,cidr,addressLabel,addressSize,sizeOf,space,spaceIntersect,cutSpace,parseRule,parseConfig,discoverTargets,appsFor,evaluatePath,evaluateDestination,columnGroups,buildModel,PROTOCOLS,permissionSpaces,normalizeAddresses,addressRanges,finishSummary,groupDestinations,equivalentBehavior,mergeSpaces};
+})(typeof self!=='undefined'?self:globalThis);
+
+</script>
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s),E=window.AclEngine;
+
+// Input notices stay above the matrix so missing or conflicting input is visible without opening Tools.
+const input=$('#configInput'),status=$('#status'),wrap=$('#matrixWrap'),dialog=$('#detailsDialog');
+let model=null,worker=null,job=0,focusedSource=null,focusedDestination=null,selectedPath=null,visibleRows=[],visibleCols=[],scrollBeforeDetails=null;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const label=v=>v.kind==='vlan'?`VLAN ${v.id}${v.name?' · '+v.name:''}`:v.text;
+const caption=value=>{const r=typeof value==='string'?{status:value}:value;if(r.status==='review'&&r.diagnostics?.some(d=>d.kind==='calculation-limit'))return 'Analysis limit';return r.status==='split'?(r.policy?.kind==='grouped'?'Varies by destination':r.policy?.baseline==='permit'?'Allowed with restrictions':'Blocked with exceptions'):({review:'Needs input',open:'No ACL',same:'Same VLAN',allow:'Allowed',deny:'Blocked'}[r.status]||r.status);};
+function setBusy(b){$('#analyzeBtn').disabled=b;$('#cancelBtn').hidden=!b;$('#analyzeBtn').textContent=b?'Analyzing…':'Analyze';$('#exampleBtn').disabled=b;wrap.setAttribute('aria-busy',String(b));}
+function stop(){job++;if(worker){worker.terminate();worker=null;}setBusy(false);}
+function toggleInput(hide){$('.grid').classList.toggle('matrixOnly',hide);$('.wrap').classList.toggle('withConfig',!hide);$('#expandBtn').textContent='Config';$('#expandBtn').setAttribute('aria-expanded',String(!hide));}
+const EMPTY_MESSAGE='Paste SVI interfaces and ACLs, then select Analyze.',INTRO_HTML=wrap.innerHTML;
+function resetOutput(message=EMPTY_MESSAGE){
+ hideHover();model=null;dialog.close();
+ wrap.innerHTML=message===EMPTY_MESSAGE?INTRO_HTML:`<div class="empty">${esc(message)}</div>`;$('#iconKey').hidden=true;
+ // Hide every result-dependent panel and collapse its toggle.
+ for(const id of ['matrixBar','inventoryPanel','packetPanel','focusBar','toolSep','inventoryToggle','packetToggle','exportMenu'])$('#'+id).hidden=true;
+ for(const id of ['inventoryToggle','packetToggle'])$('#'+id).setAttribute('aria-expanded','false');closeExportMenu();
+ for(const id of ['inventoryBody','inventoryTabs','packetResult'])$('#'+id).innerHTML='';
+ for(const id of ['search','sourceSearch','groupFilter','resultFilter'])$('#'+id).value='';
+ focusedSource=null;focusedDestination=null;selectedPath=null;visibleRows=[];visibleCols=[];litRow=null;litCol=null;
+}
+function searchText(v){return [label(v),v.text,...Object.values(v.bindings||{}).map(b=>b.name||''),...(v.refs||[]).map(r=>r.name)].join(' ').toLowerCase();}
+function matchesSearch(v,query){if(!query)return true;const ip=E.ipInt(query),prefix=query.includes('/')?E.cidr(query):null;if(ip!==null)return v.addresses.some(c=>E.cubeHit(c,ip));if(prefix)return v.addresses.some(c=>E.intersect(c,prefix));return searchText(v).includes(query);}
+// Inventory: one line of counts and three views. SVIs shows each VLAN's ACLs (missing ones flagged), Not
+// attached lists ACLs no SVI uses, Notes collects everything the parser wants you to know, including links to
+// any paths that need input.
+let inventoryTab='svis';
+function inventoryData(m){
+ const attached=[...new Set(m.vlans.flatMap(v=>[...v.groups.in,...v.groups.out]))],missing=attached.filter(n=>!m.acls.some(a=>a.name===n));
+ const unresolved=Object.entries(m.results).filter(([,r])=>r.status==='review'),groups=new Map();
+ for(const [key,r] of unresolved){
+  const [sk,dk]=key.split('>'),src=m.vlans.find(v=>v.key===sk);
+  for(const msg of new Set((r.diagnostics||[]).map(x=>x.message).concat(r.issues||[]).filter(Boolean).concat(r.diagnostics?.length||r.issues?.length?[]:['needs input']))){
+   const g=groups.get(src.id+'|'+msg)||{src:src.id,msg,dsts:[]};g.dsts.push(dk);groups.set(src.id+'|'+msg,g);
+  }
+ }
+ // An interface warning ("VLAN 23 IN: ACL X was not included") is the same fact as its path note: keep one.
+ const covered=new Set([...groups.values()].map(g=>g.src+'|'+g.msg));
+ const notes=[...m.errors,...m.warnings].filter(text=>{const w=text.match(/^VLAN (\d+) (?:IN|OUT): (.*)$/);return !(w&&covered.has(w[1]+'|'+w[2]));}).map(text=>({text}));
+ const dstLabel=k=>label([...m.vlans,...m.targets].find(v=>v.key===k));
+ for(const g of groups.values())notes.push({text:`VLAN ${g.src} → ${g.dsts.length===1?dstLabel(g.dsts[0]):g.dsts.length+' destinations'} need${g.dsts.length===1?'s':''} input: ${g.msg}`,src:g.src,dst:g.dsts[0]});
+ return {attached,missing,notes,unresolved:unresolved.length};
+}
+function renderInventory(){
+ if(!model)return;
+ const m=model,d=inventoryData(m);
+ const s=n=>n===1?'':'s',on=d.attached.length-d.missing.length;
+ $('#inventorySummary').textContent=`${m.vlans.length} SVI${s(m.vlans.length)} · ${on} ACL${s(on)} attached · ${m.unattached.length} not attached${d.missing.length?` · ${d.missing.length} missing`:''}`;
+ $('#inventoryCount').hidden=!d.notes.length;$('#inventoryCount').textContent=d.notes.length;
+ $('#inventoryToggle').setAttribute('aria-label',d.notes.length?`Inventory, ${d.notes.length} notes`:'Inventory');
+ const tabs=[['svis','SVIs',m.vlans.length],['unattached','Not attached',m.unattached.length],['notes','Notes',d.notes.length]];
+ $('#inventoryTabs').innerHTML=tabs.map(([id,name,n])=>`<button type="button" role="tab" data-tab="${id}" aria-selected="${id===inventoryTab}">${name}<span class="n">${n}</span></button>`).join('');
+ const acl=b=>b.state==='none'?'<span class="muted">—</span>':b.kind==='missing-definition'?`<span class="review">${esc(b.name)} · not in paste</span>`:b.state==='review'?`<span class="review">${esc(b.name||'')} · ${esc(b.reason)}</span>`:esc(b.name);
+ let html='';
+ if(inventoryTab==='svis')html=`<table class="invTable"><thead><tr><th>VLAN</th><th>Name</th><th>Subnet</th><th>IN</th><th>OUT</th></tr></thead><tbody>${m.vlans.map(v=>`<tr><td><button type="button" class="linkBtn" data-inventory-source="${v.id}" title="Show only this source">VLAN ${v.id}</button></td><td>${esc(v.name)}</td><td>${esc(v.text)}${v.vrf&&v.vrf!=='default'?`<br><span class="muted">VRF ${esc(v.vrf)}</span>`:''}</td><td>${acl(v.bindings.in)}</td><td>${acl(v.bindings.out)}</td></tr>`).join('')}</tbody></table>`;
+ else if(inventoryTab==='unattached')html=m.unattached.length?`<p class="hint">Not applied to any SVI, so no effect on the matrix.</p>`+m.unattached.map(a=>`<details class="aclBlock"><summary><b>${esc(a.name)}</b> <span class="muted">${a.rules.length} line${a.rules.length===1?'':'s'}</span></summary>${a.rules.map(r=>`<code>${esc(r.original)}</code>`).join('')}</details>`).join(''):'<p class="hint">All ACLs are applied.</p>';
+ else html=d.notes.length?`<div class="noteList">${d.notes.map(n=>n.src!==undefined?`<button type="button" class="note review" data-src="${n.src}" data-dst="${esc(n.dst)}">${esc(n.text)}</button>`:`<div class="note">${esc(n.text)}</div>`).join('')}</div>`:'<p class="hint">Nothing to note.</p>';
+ $('#inventoryBody').innerHTML=html;
+}
+// Presentation mappings only. ACL evaluation never reads this dictionary.
+const iconPaths={sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',moon:'<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>',contrast:'<circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18Z" fill="currentColor"/>',target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>',branches:'<path d="M5 20V5h12M5 12h12m-4-4 4 4-4 4m0-15 4 4-4 4"/>',block:'<circle cx="12" cy="12" r="9"/><path d="m6 6 12 12"/>',check:'<path d="m5 12 4 4 10-10"/>',unlock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0M12 14v3"/>',help:'<circle cx="12" cy="12" r="9"/><path d="M9 8a3 3 0 0 1 6 1c0 2-3 2-3 4m0 3v1"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',network:'<rect x="8" y="2" width="8" height="6" rx="1"/><path d="M12 8v5M4 16v-3h16v3"/><rect x="1" y="16" width="6" height="6" rx="1"/><rect x="17" y="16" width="6" height="6" rx="1"/>',globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4M12 14v3"/>',terminal:'<rect x="2" y="3" width="20" height="18" rx="2"/><path d="m6 8 4 4-4 4m7 0h5"/>',pulse:'<path d="M2 12h5l3-8 4 16 3-8h5"/>',host:'<rect x="3" y="3" width="18" height="13" rx="2"/><path d="M12 16v5m-5 0h10"/>',server:'<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6v1m0 10v1m4-11h6m-6 11h6"/>',mail:'<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 5 10 8L22 5"/>',database:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 4 18 4 18 0V5M3 12c0 4 18 4 18 0"/>',phone:'<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/>',video:'<rect x="2" y="5" width="13" height="14" rx="2"/><path d="m15 10 7-4v12l-7-4"/>',folder:'<path d="M2 7V4h7l3 3h10v14H2Z"/>',shield:'<path d="m12 2 9 4v6c0 6-9 10-9 10S3 18 3 12V6Z"/>',settings:'<path d="M4 5h16M4 12h16M4 19h16"/><circle cx="8" cy="5" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="19" r="2"/>'};
+function icon(name,cls=''){return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name]||iconPaths.settings}</svg>`;}
+const defaultServices=[{name:'DNS',protocol:'TCP/UDP',ports:'53',icon:'search'},{name:'DHCP',protocol:'UDP',ports:'67-68',icon:'database'},{name:'HTTP',protocol:'TCP',ports:'80',icon:'globe'},{name:'HTTPS',protocol:'TCP',ports:'443',icon:'lock'},{name:'SSH',protocol:'TCP',ports:'22',icon:'terminal'},{name:'ICMP',protocol:'ICMP',ports:'',icon:'pulse'}];
+let services=structuredClone(defaultServices);
+const serviceKey='vlan-acl-services-v1';
+function portRanges(s){if(!/^\d+(?:-\d+)?(?:\s*,\s*\d+(?:-\d+)?)*$/.test(s))throw Error('Use ports such as 443 or 8000-8080.');return s.split(',').map(t=>{const [a,b=a]=t.trim().split('-').map(Number);if(a>b||a<0||b>65535)throw Error('Ports must be 0–65535, with ascending ranges.');return[a,b]});}
+function validateServices(items){if(!Array.isArray(items)||items.length>100)throw Error('Up to 100 services are supported.');for(const e of items){if(!e||typeof e.name!=='string'||!e.name.trim()||e.name.length>40||!['TCP','UDP','TCP/UDP','ICMP'].includes(e.protocol)||typeof e.ports!=='string'||!iconPaths[e.icon])throw Error('Enter a service name, protocol and icon.');if(e.protocol!=='ICMP')portRanges(e.ports)}for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=items[i],b=items[j];if(!a.protocol.split('/').some(p=>b.protocol.split('/').includes(p)))continue;if(a.protocol==='ICMP'||portRanges(a.ports).some(x=>portRanges(b.ports).some(y=>x[0]<=y[1]&&y[0]<=x[1])))throw Error(`${a.name} overlaps ${b.name}. Choose distinct ports or protocols.`)}return items;}
+let keyNotice='';try{const saved=localStorage.getItem(serviceKey);if(saved!==null)services=validateServices(JSON.parse(saved));}catch{keyNotice='Saved Icon key unreadable; showing defaults.';}
+function addressSet(cubes,compact=false){
+ const addresses=E.normalizeAddresses(cubes),hits=model?model.vlans.filter(v=>addresses.some(c=>v.addresses.some(a=>E.intersect(a,c)))):[];
+ const names=[...new Set(hits.map(v=>'VLAN '+v.id))];
+ const covered=hits.length&&!E.subtractMany(addresses,hits.flatMap(v=>v.addresses)).length;
+ if(compact&&covered)return names.join(', ');
+ const ranges=E.addressRanges(addresses);
+ const labels=ranges?ranges.map(([a,b])=>{if(a===b)return E.ipText(a)+'/32';const size=b-a+1,prefix=32-Math.log2(size);if(size>=16&&Number.isInteger(prefix)&&a%size===0)return E.ipText(a)+'/'+prefix;return E.ipText(a)+'–'+E.ipText(b);}):addresses.map(E.addressLabel);
+ const text=labels.join(', ');
+ return compact?text:text+(names.length?' ('+(covered?'':'Includes ')+names.join(', ')+')':'');
+}
+function rangeText(r){return r[0]===r[1]?String(r[0]):r[0]+'–'+r[1];}
+function fullRange(r,max=65535){return r[0]===0&&r[1]===max;}
+function protocolName(p){return p.protocol[0]===p.protocol[1]?({1:'ICMP',6:'TCP',17:'UDP'}[p.protocol[0]]||'IP protocol '+p.protocol[0]):fullRange(p.protocol,255)?'All IP traffic':'IP protocols '+rangeText(p.protocol);}
+// Service entries are replaced on save, so parsed ports can be cached per entry object.
+const parsedPorts=new WeakMap();
+function servicePorts(e){let ranges=parsedPorts.get(e);if(!ranges){ranges=e.protocol==='ICMP'?[]:portRanges(e.ports);parsedPorts.set(e,ranges);}return ranges;}
+function exactService(p){const proto=protocolName(p);return services.find(e=>e.protocol.split('/').includes(proto)&&(proto==='ICMP'||servicePorts(e).some(([a,b])=>p.destinationPorts[0]>=a&&p.destinationPorts[1]<=b)));}
+function addressBrief(parts){const addresses=E.normalizeAddresses(parts),ranges=E.addressRanges(addresses,32);if(!ranges||ranges.length>4)return E.sizeOf(addresses).toLocaleString()+' addresses';const text=ranges.map(([a,b])=>a===b?E.ipText(a):E.ipText(a)+'–'+E.ipText(b)).join(', ');return text.length>100?E.sizeOf(addresses).toLocaleString()+' addresses':text;}
+function permissionScope(p,showHosts){return (!p.sourceAll?(showHosts?' from '+addressBrief(p.sources):' · selected source hosts'):'')+(!p.destinationAll?(showHosts?' to '+addressBrief(p.destinations):' · selected destination hosts / networks'):'');}
+function hostExplanation(records,action){const lines=[];for(const [dimension,all,name]of [['sources','sourceAll','source'],['destinations','destinationAll','destination']]){const parts=E.normalizeAddresses(records.filter(p=>!p[all]).flatMap(p=>p[dimension]));if(parts.length)lines.push(E.sizeOf(parts).toLocaleString()+' '+(action==='deny'?'restricted':'permitted')+' '+name+' addresses');}return lines.join('\n')+'';}
+function readablePermission(p,compact=false,terse=false,showHosts=false){
+ const proto=protocolName(p),entry=exactService(p);let t=proto;
+ if(proto==='TCP'||proto==='UDP')t+=fullRange(p.destinationPorts)?' · all destination ports':'/'+rangeText(p.destinationPorts);
+ if(entry&&entry.name!==proto)t=entry.name+' · '+t;
+ if(!fullRange(p.sourcePorts))t+=' · source port '+rangeText(p.sourcePorts);
+ if(!fullRange(p.icmpTypes,255))t+=' · type '+rangeText(p.icmpTypes);
+ if(!fullRange(p.icmpCodes,255))t+=' · code '+rangeText(p.icmpCodes);
+ if(!fullRange(p.tcpFlags,1))t+=p.tcpFlags[0]?' · ACK/RST set':' · ACK/RST not set';
+ if(terse)return t+permissionScope(p,showHosts);
+ t+=' from '+addressSet(p.sources,compact)+(compact&&!p.sourceAll?' (some addresses)':'');
+ t+=' to '+addressSet(p.destinations,compact)+(compact&&!p.destinationAll?' (some addresses)':'');return t;
+}
+// Two UDP permissions that mirror each other on ports 67/68 (DHCP client ↔ server) read better as one line.
+function isDhcpMirror(p,q,entry){
+ const udp=x=>x.protocol[0]===17&&x.protocol[1]===17,same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+ if(!entry||!udp(p)||!udp(q)||exactService(q)!==entry)return false;
+ if(p.sourcePorts[0]!==p.sourcePorts[1]||p.destinationPorts[0]!==p.destinationPorts[1])return false;
+ const sp=p.sourcePorts[0],dp=p.destinationPorts[0];
+ if(!((sp===68&&dp===67)||(sp===67&&dp===68)))return false;
+ return same(q.sourcePorts,p.destinationPorts)&&same(q.destinationPorts,p.sourcePorts)
+  &&same([p.sources,p.destinations,p.icmpTypes,p.icmpCodes,p.tcpFlags],[q.sources,q.destinations,q.icmpTypes,q.icmpCodes,q.tcpFlags]);
+}
+function permissionLines(summary,compact=false,terse=false,showHosts=false){
+ const records=summary?.permissions||[],used=new Set(),lines=[];
+ const hostsNote=all=>compact&&!all?' (some addresses)':'';
+ for(let i=0;i<records.length;i++){
+  if(used.has(i))continue;
+  const p=records[i],entry=exactService(p);
+  const pair=records.findIndex((q,j)=>j!==i&&!used.has(j)&&isDhcpMirror(p,q,entry));
+  if(pair<0){lines.push(readablePermission(p,compact,terse,showHosts));continue;}
+  used.add(pair);
+  lines.push(terse
+   ?entry.name+' · UDP 68 ↔ 67'+permissionScope(p,showHosts)
+   :entry.name+' · UDP 68 ↔ 67 from '+addressSet(p.sources,compact)+hostsNote(p.sourceAll)+' to '+addressSet(p.destinations,compact)+hostsNote(p.destinationAll));
+ }
+ return lines;
+}
+function exceptionRecords(r){
+ if(r.policy?.kind!=='grouped')return (r.policy?.permissions||[]).map(p=>({p,action:r.policy.exceptionAction}));
+ // Grouped records remember their destination segment (where) so the panel can say where each icon applies.
+ return r.segments.flatMap(seg=>{const x=seg.result;if(x.status==='allow'||x.status==='open')return [{p:{sources:model.vlans.find(v=>v.id===r.sourceId)?.addresses||[],destinations:seg.destination.addresses,protocol:[0,255],sourcePorts:[0,65535],destinationPorts:[0,65535],icmpTypes:[0,255],icmpCodes:[0,255],tcpFlags:[0,1],sourceAll:true,destinationAll:false,where:seg},action:'permit'}];return (x.policy?.permissions||[]).map(p=>({p:{...p,destinationAll:false,where:seg},action:x.policy.exceptionAction}));});
+}
+function permissionInfo(r){const items=[],hosts={permit:[],deny:[]},conditions=[],byKey=new Map();for(const {p,action}of exceptionRecords(r)){
+ const proto=protocolName(p),entry=exactService(p);
+ // In grouped cells every record is destination-limited; a service icon already covers TCP/UDP/ICMP ones.
+ if((!p.sourceAll||!p.destinationAll)&&!(p.where&&['TCP','UDP','ICMP'].includes(proto)))hosts[action].push(p);
+ if(['TCP','UDP','ICMP'].includes(proto)){const name=entry?.name||proto+(proto==='ICMP'?'':'/'+rangeText(p.destinationPorts)),key=(entry?services.indexOf(entry):name)+'/'+action;let item=byKey.get(key);if(!item){item={name,action,icon:entry?.icon||'settings',permissions:[]};byKey.set(key,item);items.push(item);}item.permissions.push(p);}
+ if(!['TCP','UDP','ICMP','All IP traffic'].includes(proto)||!fullRange(p.icmpTypes,255)||!fullRange(p.icmpCodes,255)||!fullRange(p.tcpFlags,1))conditions.push(p);
+ }return {items,hosts,conditions,incomplete:!r.policy?.complete};}
+function explanationIcon(ic,name,kind,index='',fallback='',action='permit'){return `<span class="explainIcon ${action==='context'?'varied':action==='deny'?'deny':'permit'}" data-explain="${kind}" data-item="${index}" aria-label="${esc(name)}">${fallback?`<span class="serviceFallback">${esc(fallback)}</span>`:icon(ic)}</span>`;}
+// Services allowed to every destination of the given results. Candidates are the services the results'
+// exceptions permit, with the exact flows they permit (e.g. UDP 68 -> 67). A candidate is kept only when no
+// blocked or unresolved traffic in any result touches those flows, so the answer does not depend on how a
+// cell's policy happens to be split into summary pieces.
+function commonServices(results){
+ const flows=new Map();
+ for(const r of results)if(r.status==='split')for(const item of permissionInfo(r).items){
+  if(item.action!=='permit')continue;
+  if(!flows.has(item.name))flows.set(item.name,[]);
+  for(const q of item.permissions)flows.get(item.name).push([E.ANY,E.ANY,q.protocol,q.sourcePorts,q.destinationPorts,q.icmpTypes,q.icmpCodes,q.tcpFlags]);
+ }
+ const touched=(r,f)=>[...(r.traffic?.denied||[]),...(r.traffic?.unknown||[])].some(d=>f.some(x=>E.spaceIntersect(d,x)));
+ return new Set([...flows].filter(([,f])=>results.every(r=>r.status==='same'||!touched(r,f))).map(([n])=>n));
+}
+// A service a source VLAN allows to every destination is a fact about its row: it is shown once beside the
+// row label and left out of that row's cells.
+let rowWideCache=new Map();
+function rowWide(srcKey){
+ if(!rowWideCache.has(srcKey))rowWideCache.set(srcKey,commonServices([...model.vlans,...model.targets].map(d=>model.results[`${srcKey}>${d.key}`]).filter(Boolean)));
+ return rowWideCache.get(srcKey);
+}
+const serviceIcon=name=>services.find(e=>e.name===name)?.icon||'settings';
+function exceptionIcons(r,hidden=new Set()){const p=permissionInfo(r),parts=p.items.map((e,i)=>[e,i]).filter(([e])=>!(e.action==='permit'&&hidden.has(e.name))).map(([e,i])=>explanationIcon(e.icon,e.name,'service',i,e.icon?'':e.name,e.action));for(const action of ['permit','deny'])if(p.hosts[action].length)parts.push(explanationIcon('host',action==='permit'?'Allowed addresses':'Blocked addresses','hosts',action,'',action));if(p.conditions.length||p.incomplete)parts.push(explanationIcon('settings','Permission conditions','conditions','','',r.policy?.kind==='grouped'?'context':r.policy?.exceptionAction));return `<span class="exceptions">${parts.slice(0,parts.length>3?2:3).join('')}${parts.length>3?explanationIcon(null,'More exceptions','permits','',`+${parts.length-2}`):''}</span>`;}
+function cellText(r,hidden){if(r.status==='same')return '—';if(r.status==='split'){if(r.policy?.kind==='grouped')return explanationIcon('branches','Varies by destination','baseline','','','context')+exceptionIcons(r,hidden);const permitted=r.policy?.baseline==='permit'&&r.policy.kind!=='grouped';return explanationIcon(permitted?'check':'block',permitted?'Allowed traffic':'Blocked traffic','baseline','','',permitted?'permit':'deny')+exceptionIcons(r,hidden);}const values={allow:['check','Allowed'],deny:['block','Blocked'],review:['help','Needs input'],open:['unlock','No ACL']};const [ic,t]=values[r.status];return icon(ic);}
+function resultDescription(r){
+ if(r.status==='split'){
+  if(r.policy?.kind==='grouped')return 'Differs by destination.';
+  const blocking=r.policy.baseline==='permit',lines=permissionLines(r.policy,false,true);
+  const listed=lines.length?'\n'+(blocking?'Blocked':'Permitted')+': '+lines.slice(0,3).join('; '):'';
+  const rest=!r.policy.complete?'\nSummary incomplete.':blocking?'\nEverything else allowed.':'\nEverything else blocked.';
+  return caption(r)+'.'+listed+rest;
+ }
+ if(r.status==='review')return (r.diagnostics||[]).map(x=>x.destination+': '+x.message).join('\n')||r.issues.join('\n')||'Needs input.';return {allow:'All traffic allowed.',deny:'All traffic blocked.',open:'No ACL either way.',same:'Same VLAN.'}[r.status];}
+// Cell markup and descriptions depend only on the result and the Icon key; reset when either changes.
+let presentation=new WeakMap();
+function cellPresentation(r){let p=presentation.get(r);if(!p){p={html:cellText(r,rowWide('v:'+r.sourceId)),description:resultDescription(r)};presentation.set(r,p);}return p;}
+let serviceDraft=null;
+function saveServices(){
+ keyNotice='';presentation=new WeakMap();rowWideCache=new Map();try{localStorage.setItem(serviceKey,JSON.stringify(services));}catch{keyNotice='Saved for this session; browser storage is unavailable.';}
+ if(model){render();if(dialog.open&&selectedPath)details(selectedPath.srcId,selectedPath.dstKey);}
+}
+function renderKey(){
+ const editing=serviceDraft!==null,items=editing?serviceDraft:services;
+ const statusLabels=[['block','Blocked','deny'],['check','Allowed','allow'],['unlock','No ACL','open'],['branches','Varies by destination','varied'],['help','Needs input','review'],['target','Deny target','deny'],['host','Selected addresses',''],['settings','Other service / conditions',''],['database','Beside a source: allowed everywhere','allow']];
+ $('#keyStatus').innerHTML=statusLabels.map(([ic,t,c])=>`<span class="${c}">${icon(ic)}${t}</span>`).join('');
+ $('#keyItems').classList.toggle('editing',editing);
+ $('#keyItems').innerHTML=items.map((e,i)=>editing?`<div class="keyItem" data-service="${i}"><button class="keyIcon" aria-label="Choose icon for ${esc(e.name||'new service')}" aria-expanded="false">${icon(e.icon)}</button><input class="keyName" aria-label="Service name" maxlength="40" placeholder="Service name" value="${esc(e.name)}"><button class="keyDelete" aria-label="Remove ${esc(e.name||'new service')}">×</button><div class="keyEditor"><label>Protocol<select aria-label="Protocol">${['TCP','UDP','TCP/UDP','ICMP'].map(p=>`<option ${p===e.protocol?'selected':''}>${p}</option>`).join('')}</select></label><label>Ports<input aria-label="Ports" placeholder="443 or 8000-8080" value="${esc(e.ports)}" ${e.protocol==='ICMP'?'disabled':''}></label></div><div class="iconPicker" hidden>${Object.keys(iconPaths).filter(x=>!['block','check','unlock','help','branches','target','sun','moon','contrast'].includes(x)).map(ic=>`<button data-icon="${ic}" aria-label="${ic}" title="${ic}" aria-pressed="${ic===e.icon}">${icon(ic)}</button>`).join('')}</div></div>`:`<span class="keyEntry" title="${esc(e.protocol+(e.ports?' / '+e.ports:''))}">${icon(e.icon)}<span>${esc(e.name)}</span><small>${esc(e.protocol+(e.ports?'/'+e.ports:''))}</small></span>`).join('')||'<p class="ruleNote">No service icons. Select Edit to add some.</p>';
+ $('#editKey').hidden=editing;for(const id of ['addService','restoreKey','saveKey','cancelKey'])$('#'+id).hidden=!editing;
+ $('#keyMessage').textContent=keyNotice;
+}
+$('#editKey').addEventListener('click',()=>{serviceDraft=structuredClone(services);renderKey();});
+$('#cancelKey').addEventListener('click',()=>{serviceDraft=null;renderKey();$('#editKey').focus();});
+$('#restoreKey').addEventListener('click',()=>{serviceDraft=structuredClone(defaultServices);renderKey();$('#keyMessage').textContent='Defaults loaded. Save or Cancel.';});
+$('#saveKey').addEventListener('click',()=>{try{const next=serviceDraft.map(e=>({...e,name:e.name.trim(),ports:e.protocol==='ICMP'?'':e.ports.trim()}));validateServices(next);services=next;serviceDraft=null;saveServices();renderKey();$('#editKey').focus();}catch(err){$('#keyMessage').textContent=err.message;}});
+$('#keyItems').addEventListener('input',e=>{const row=e.target.closest('[data-service]');if(!row||!serviceDraft)return;const entry=serviceDraft[+row.dataset.service];if(e.target.classList.contains('keyName'))entry.name=e.target.value;else if(e.target.matches('input'))entry.ports=e.target.value;});
+$('#keyItems').addEventListener('change',e=>{const row=e.target.closest('[data-service]');if(!row||!serviceDraft||e.target.tagName!=='SELECT')return;const entry=serviceDraft[+row.dataset.service];entry.protocol=e.target.value;const ports=row.querySelector('.keyEditor input');ports.disabled=entry.protocol==='ICMP';if(ports.disabled){entry.ports='';ports.value='';}});
+$('#keyItems').addEventListener('click',e=>{
+ const row=e.target.closest('[data-service]');if(!row||!serviceDraft)return;const i=+row.dataset.service;
+ if(e.target.closest('.keyIcon')){const picker=row.querySelector('.iconPicker');picker.hidden=!picker.hidden;row.querySelector('.keyIcon').setAttribute('aria-expanded',String(!picker.hidden));}
+ const pick=e.target.closest('[data-icon]');if(pick){serviceDraft[i].icon=pick.dataset.icon;row.querySelector('.keyIcon').innerHTML=icon(pick.dataset.icon);row.querySelector('.iconPicker').hidden=true;row.querySelector('.keyIcon').setAttribute('aria-expanded','false');row.querySelectorAll('[data-icon]').forEach(b=>b.setAttribute('aria-pressed',String(b===pick)));}
+ if(e.target.closest('.keyDelete')){serviceDraft.splice(i,1);renderKey();}
+});
+$('#addService').addEventListener('click',()=>{if(serviceDraft.length>=100){$('#keyMessage').textContent='Up to 100 services are supported.';return;}serviceDraft.push({name:'',protocol:'TCP',ports:'',icon:'server'});renderKey();$('#keyItems').lastElementChild.querySelector('.keyName').focus();});
+renderKey();
+const hover=$('#hoverCard');let hoverTimer=null,hoverTarget=null,hoverViaFocus=false;
+function hideHover(){clearTimeout(hoverTimer);if(hoverTarget){hoverTarget.removeAttribute('aria-describedby');}hover.hidden=true;hoverTarget=null;}
+function cellContext(el){const cell=el.closest('.cell');if(!cell||!model)return null;const src=model.vlans.find(x=>x.id===+cell.dataset.src),dst=[...model.vlans,...model.targets].find(x=>x.key===cell.dataset.dst);return src&&dst?{src,dst,r:model.results[`${src.key}>${dst.key}`]}:null;}
+function scopeName(v){return v.kind==='vlan'?'VLAN '+v.id:(v.text||addressSet(v.addresses,true));}
+function detailedPermissions(src,dst){const r=model.results[`${src.key}>${dst.key}`];return resultDescription(r);}
+function hoverContent(el){const c=cellContext(el);if(el.matches('[data-explain]')&&c){const {src,dst,r}=c,p=permissionInfo(r),kind=el.dataset.explain;
+ if(kind==='service'){const item=p.items[+el.dataset.item];return item?item.name+' — '+(item.action==='permit'?'permitted':'blocked')+'\n'+permissionLines({permissions:item.permissions},true,true).slice(0,3).join('\n')+'':'';}
+ if(kind==='hosts')return hostExplanation(p.hosts[el.dataset.item],el.dataset.item);
+ if(kind==='baseline')return r.policy?.kind==='grouped'?'Differs by destination.':r.policy?.complete?(r.policy.baseline==='permit'?'Everything else allowed.':'Everything else blocked.'):'Summary incomplete.';
+ if(kind==='conditions')return 'Other conditions\n'+(p.incomplete?'Summary incomplete.':permissionLines({permissions:p.conditions},true,true).slice(0,3).join('\n'));
+ return detailedPermissions(src,dst);}
+ if(c)return scopeName(c.src)+' → '+scopeName(c.dst)+'\n'+resultDescription(c.r);
+ if(el.matches('.headContent')){const d=[...model.vlans,...model.targets].find(x=>x.key===el.dataset.focusDst);return label(d)+(d.kind==='vlan'?'\n'+d.text:'')+(d.group==='deny'?'\nTarget of a deny rule.':'')+(d.bindings?'\nOUT: '+(d.bindings.out.name||'No ACL'):'')+'\nClick to highlight.';}
+ if(el.matches('.rowHead button')){const v=model.vlans.find(x=>x.id===+el.dataset.focusSrc);const wide=[...rowWide(v.key)];return label(v)+'\n'+v.text+'\nIN: '+(v.bindings.in.name||'No ACL')+'\nOUT: '+(v.bindings.out.name||'No ACL')+(wide.length?'\n'+wide.join(', ')+' allowed everywhere.':'')+'\nClick to highlight.';}return '';}
+function showHover(el){if(dialog.open&&window.matchMedia('(max-width:760px)').matches)return;const text=hoverContent(el);if(!text)return;hoverTarget=el;const lines=text.split('\n');hover.textContent=lines.slice(0,8).join('\n')+(lines.length>8?'\n…':'');hover.hidden=false;el.setAttribute('aria-describedby','hoverCard');placeHover(el);}
+function placeHover(el){const box=el.getBoundingClientRect(),right=dialog.open?dialog.getBoundingClientRect().left-8:innerWidth-8;hover.style.maxWidth=Math.max(100,Math.min(340,right-16))+'px';const h=hover.getBoundingClientRect();let top=box.bottom+8;if(top+h.height>innerHeight-8)top=Math.max(8,box.top-h.height-8);hover.style.top=top+'px';hover.style.left=Math.max(8,Math.min(box.left,right-h.width))+'px';}
+// Scrolling (including the scroll-into-view that keyboard focus causes) moves the tooltip with its anchor;
+// it hides only once the anchor leaves the visible matrix area.
+function followHover(){if(hover.hidden||!hoverTarget?.isConnected)return hideHover();const a=hoverTarget.getBoundingClientRect(),v=wrap.getBoundingClientRect();if(a.bottom<=v.top||a.top>=v.bottom||a.right<=v.left||a.left>=v.right)return hideHover();placeHover(hoverTarget);}
+const hoverSelector='[data-explain],.cell,.headContent,.rowHead button';
+// One owner for the tooltip; its trigger and the travel corridor stay active together.
+function inHoverRegion(x,y){if(!hoverTarget||hover.hidden)return false;const a=(hoverTarget.closest('.cell')||hoverTarget).getBoundingClientRect(),b=hover.getBoundingClientRect();const points=[a,b].flatMap(r=>[[r.left,r.top],[r.right,r.top],[r.right,r.bottom],[r.left,r.bottom]]).sort((p,q)=>p[0]-q[0]||p[1]-q[1]);const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);let lo=[],hi=[];for(const p of points){while(lo.length>1&&cross(lo.at(-2),lo.at(-1),p)<=0)lo.pop();lo.push(p);}for(const p of points.slice().reverse()){while(hi.length>1&&cross(hi.at(-2),hi.at(-1),p)<=0)hi.pop();hi.push(p);}const hull=lo.slice(0,-1).concat(hi.slice(0,-1));return hull.every((p,i)=>cross(p,hull[(i+1)%hull.length],[x,y])>=-1);}
+document.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse')return;if(hover.contains(e.target))return;const el=wrap.contains(e.target)?e.target.closest(hoverSelector):null;
+ const sameOwner=el&&hoverTarget&&el.closest('.cell')&&el.closest('.cell')===hoverTarget.closest('.cell');
+ if(hoverTarget&&(el===hoverTarget||sameOwner&&!el.matches('[data-explain]')||inHoverRegion(e.clientX,e.clientY)&&!el?.matches('[data-explain]')))return;
+ if(el){hideHover();hoverViaFocus=false;hoverTarget=el;hoverTimer=setTimeout(()=>showHover(el),250);}else hideHover();
+});
+document.addEventListener('pointerleave',hideHover);
+// Focus returned from the details panel is not a new hover request.
+wrap.addEventListener('focusin',e=>{const el=e.target.closest(hoverSelector);if(el&&!restoringFocus){hideHover();hoverViaFocus=true;showHover(el);}});wrap.addEventListener('focusout',hideHover);
+wrap.addEventListener('click',hideHover,true);
+// Any scroll except inside the tooltip itself moves its anchor, so hide it (capture catches non-bubbling scrolls).
+document.addEventListener('scroll',e=>{if(e.target===hover)return;if(e.target===wrap&&hoverViaFocus)followHover();else hideHover();},true);document.addEventListener('pointerdown',e=>{if(!hover.contains(e.target)&&!e.target.closest('[data-explain]'))hideHover();});document.addEventListener('keydown',e=>{if(e.key==='Escape'){hideHover();if(dialog.open)dialog.close();}});window.addEventListener('resize',hideHover);
+function matchesResult(r){const f=$('#resultFilter').value;return !f||r.status===f;}
+function resetFilters(){for(const id of ['search','sourceSearch','groupFilter','resultFilter'])$('#'+id).value='';focusedSource=null;focusedDestination=null;render();}
+// Clear appears only while a search, type or result filter (or a focus) is active.
+function updateFilterCount(){const n=['search','sourceSearch','groupFilter','resultFilter'].filter(id=>$('#'+id).value.trim()).length+(focusedSource?1:0)+(focusedDestination?1:0);$('#resetFilters').hidden=!n;}
+// Counts cover the visible rows/columns before the result filter, so every chip stays selectable.
+const summaryChips=[['deny','Blocked','block'],['split','With exceptions',null],['allow','Allowed','check'],['open','No ACL','unlock'],['review','Needs input','help']];
+function renderSummary(rows,cols,selected){
+ const counts={};for(const s of rows)for(const d of cols){const st=model.results[`${s.key}>${d.key}`].status;if(st!=='same')counts[st]=(counts[st]||0)+1;}
+ $('#summaryBar').innerHTML=`<span class="summaryLabel">${rows.length} source${rows.length===1?'':'s'} × ${cols.length} destination${cols.length===1?'':'s'}</span>`+summaryChips.filter(([s])=>counts[s]).map(([s,t,ic])=>`<button type="button" class="chip ${s}" data-result="${s}" aria-pressed="${selected===s}" title="${selected===s?'Show all results':'Show only '+t.toLowerCase()}">${ic?icon(ic):''}${t}<b>${counts[s]}</b></button>`).join('');
+ $('#summaryBar').hidden=false;
+}
+$('#summaryBar').addEventListener('click',e=>{const b=e.target.closest('[data-result]');if(!b)return;const f=$('#resultFilter');f.value=f.value===b.dataset.result?'':b.dataset.result;render();$(`#summaryBar [data-result="${b.dataset.result}"]`)?.focus();});
+// Destinations filter: "Deny targets" includes deny-referenced VLANs; "VLANs" includes every VLAN.
+function destinationKind(d,kind){return !kind||(kind==='deny'?d.group==='deny':kind==='vlan'?d.kind==='vlan':d.group==='external');}
+// A pinned group label must stay inside the visible part of its group: otherwise it slides under the
+// row-header column and is cut mid-word. Shorten the name to fit, keep the count, hide only when no room.
+function fitGroupLabels(){
+ const corner=wrap.querySelector('.corner');if(!corner)return;
+ const left=corner.getBoundingClientRect().right,right=wrap.getBoundingClientRect().left+wrap.clientWidth;
+ for(const label of wrap.querySelectorAll('.groupText')){
+  const th=label.parentElement.getBoundingClientRect(),room=Math.min(th.right,right)-Math.max(th.left,left)-12;
+  label.style.maxWidth=Math.max(0,room)+'px';label.style.visibility=room<28?'hidden':'';
+  const name=label.querySelector('.groupName');name.textContent=name.dataset.full;if(name.scrollWidth>name.clientWidth)name.textContent=name.dataset.short;
+ }
+}
+let fitFrame=0;
+wrap.addEventListener('scroll',()=>{cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fitGroupLabels);});
+window.addEventListener('resize',()=>{cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fitGroupLabels);});
+function render(){
+ if(!model)return;hideHover();updateFilterCount();const m=model,query=$('#search').value.trim().toLowerCase(),sourceQuery=$('#sourceSearch').value.trim().toLowerCase(),group=$('#groupFilter').value,onlyResult=$('#resultFilter').value;const oldScroll={left:wrap.scrollLeft,top:wrap.scrollTop};
+ const groups=[{name:'Common deny targets',items:m.groups.deny,css:'restricted',id:'deny'},{name:'VLANs',items:m.groups.allowed,css:'permitted',id:'vlan'},{name:'Other networks',items:m.groups.external,css:'externalGroup',id:'external'}].map(g=>({...g,items:g.items.filter(v=>destinationKind(v,group)&&(!focusedDestination||v.key===focusedDestination)&&(!query||matchesSearch(v,query)))}));
+ let rows=m.vlans.filter(v=>(!focusedSource||v.id===focusedSource)&&(!sourceQuery||matchesSearch(v,sourceQuery)));
+ renderSummary(rows,groups.flatMap(g=>g.items),onlyResult);
+ if(onlyResult){for(const g of groups)g.items=g.items.filter(d=>rows.some(s=>matchesResult(m.results[`${s.key}>${d.key}`])));rows=rows.filter(s=>groups.some(g=>g.items.some(d=>matchesResult(m.results[`${s.key}>${d.key}`]))));}
+ const cols=groups.flatMap(g=>g.items);visibleRows=rows;visibleCols=cols;const dividers=new Set(groups.filter(g=>g.items.length).slice(1).map(g=>g.items[0].key));
+ let html=`<table class="matrix" style="width:calc(var(--source) + ${cols.length} * var(--column))"><colgroup><col style="width:var(--source)">${cols.map(()=>'<col style="width:var(--column)">').join('')}</colgroup>`+'<caption class="sr-only">FROM source VLAN rows TO destination columns</caption><thead><tr class="groupRow"><th class="corner" rowspan="2"><div class="cornerBox"><span>TO →</span><span>FROM ↓</span></div></th>';
+ for(const g of groups)if(g.items.length)html+=`<th scope="colgroup" colspan="${g.items.length}" data-group="${g.id}" class="groupLabel ${g.css}"><span class="groupText"><span class="groupName" data-full="${g.id==='deny'?'Deny targets':g.name}" data-short="${{deny:'Deny',vlan:'VLANs',external:'Other'}[g.id]}">${g.id==='deny'?'Deny targets':g.name}</span><span class="groupCount">${g.items.length}</span></span></th>`;
+ html+='</tr><tr class="columnRow">';
+ for(const d of cols)html+=`<th scope="col" data-destination="${esc(d.key)}" class="${dividers.has(d.key)?'divider':''}"><button class="headContent" data-focus-dst="${esc(d.key)}" aria-label="${esc(label(d))}"><strong>${d.kind==='vlan'&&d.group==='deny'?`<span class="denyMark deny">${icon('target')}</span>`:''}${esc(d.kind==='vlan'?'VLAN '+d.id:d.text)}</strong>${d.name?`<span class="rowName">${esc(d.name)}</span>`:''}</button></th>`;
+ html+='</tr></thead><tbody>';
+ for(const src of rows){html+=`<tr data-source="${src.id}"><th class="rowHead" scope="row"><button data-focus-src="${src.id}" aria-label="${esc(label(src)+(rowWide(src.key).size?', '+[...rowWide(src.key)].join(', ')+' allowed to every destination':''))}"><strong>VLAN ${src.id}${rowWide(src.key).size?`<span class="rowWide allow">${[...rowWide(src.key)].map(n=>icon(serviceIcon(n))).join('')}</span>`:''}</strong>${src.name?`<span class="rowName">${esc(src.name)}</span>`:''}</button></th>`;
+  for(const dst of cols){const r=m.results[`${src.key}>${dst.key}`],p=cellPresentation(r);
+   html+=`<td class="${dividers.has(dst.key)?'divider':''}"><button type="button" class="cell ${r.status} ${matchesResult(r)?'':'mutedCell'}" data-src="${src.id}" data-dst="${esc(dst.key)}" aria-haspopup="dialog" aria-label="${esc(label(src)+' to '+label(dst)+': '+p.description.replace(/\.$/,'')+'. Open path details.')}">${p.html}</button></td>`;
+  }html+='</tr>';
+ }
+ html+='</tbody></table>';wrap.innerHTML=cols.length&&rows.length?html:'<div class="empty">Nothing matches the filters.</div>';
+ wrap.scrollLeft=oldScroll.left;wrap.scrollTop=oldScroll.top;applyHighlights();fitGroupLabels();
+ $('#focusBar').hidden=!focusedSource&&!focusedDestination;
+ $('#focusBar').innerHTML=`<span>${focusedSource?'FROM VLAN '+focusedSource:''}${focusedSource&&focusedDestination?' → ':''}${focusedDestination?esc(label([...m.vlans,...m.targets].find(d=>d.key===focusedDestination))):''}</span><button class="btn" id="clearFocus">Clear focus</button>`;
+}
+// Names a set of destination segments out of the cell's destinations (all). VLAN ranges only join
+// numerically consecutive IDs, so a range never implies VLANs that aren't there. When the set holds most
+// of the cell's VLANs it is named by exclusion ("All other VLANs except 10"). Always names, never defers.
+function destinationNames(segments,all=segments,terse=false){
+ if(all!==segments&&all.length>1&&segments.length===all.length&&segments.every(s=>all.includes(s)))return 'All destinations';
+ const isVlan=s=>Number.isInteger(s.destination.id);
+ const ranges=ids=>{ids=[...new Set(ids)].sort((a,b)=>a-b);const out=[];for(let i=0;i<ids.length;i++){let j=i;while(ids[j+1]===ids[j]+1)j++;out.push(i===j?String(ids[i]):ids[i]+'–'+ids[j]);i=j;}return out.join(', ');};
+ const inSet=new Set(segments);
+ const vlansIn=segments.filter(isVlan).map(s=>s.destination.id);
+ const vlansOut=all.filter(s=>isVlan(s)&&!inSet.has(s)).map(s=>s.destination.id);
+ const extra=segments.filter(s=>!isVlan(s)).map(s=>s.label);
+ let vlanText='';
+ if(vlansIn.length){
+  const listed='VLAN '+ranges(vlansIn);
+  // terse (trace tags): the lines around it already name the excluded VLANs, so don't list them again.
+  const excluded=vlansOut.length&&!terse?'All other VLANs except '+ranges(vlansOut):'All other VLANs';
+  // Exclusion form only relative to the cell's full destination list; without it there is nothing to exclude from.
+  vlanText=all!==segments&&vlansIn.length>1&&vlansIn.length>vlansOut.length&&excluded.length<listed.length?excluded:listed;
+ }
+ let text=[vlanText,...extra].filter(Boolean).join(' · ');
+ if(text.length>240){const cut=text.slice(0,240).replace(/,[^,]*$/,'');text=cut+` … (${segments.length} destinations)`;}
+ return text;
+}
+// ACL trace: the applicable ACLs in evaluation order, each line marked by what it does for this path.
+// Deciding lines carry the cell's icon and colour; lines that touch the path but decide nothing are greyed;
+// lines that never touch it collapse into one "+N lines don't match" row. entries: one per destination
+// evaluated ({seg,result,spaces}); exceptionAction picks the "listed addresses" icon as in the cell.
+function ruleIcon(rule,action,exceptionAction){
+ const cls=action==='review'?'review':action==='deny'?'deny':'allow';
+ if(action==='review')return ['help',cls];
+ const v=rule.variants[0],entry=v&&exactService({protocol:v[2],destinationPorts:v[4]});
+ if(entry)return [entry.icon,cls];
+ if(action===exceptionAction&&v&&v[2][0]===0&&v[2][1]===255&&rule.dst&&rule.dst.m!==0)return ['host',cls];
+ return [action==='deny'?'block':'check',cls];
+}
+function traceHtml(entries,exceptionAction){
+ const blocks=new Map();
+ for(const entry of entries)for(const [stage,a] of (entry.result.attachments||[]).entries()){
+  const key=a.vlan+'|'+a.dir;
+  if(!blocks.has(key))blocks.set(key,{a,entries:[],decided:new Map(),implicit:new Set()});
+  const b=blocks.get(key);b.entries.push(entry);
+  for(const e of entry.result.reasons||[]){
+   if(e.stage!==stage)continue;
+   if(e.rule){if(!b.decided.has(e.rule.index))b.decided.set(e.rule.index,{actions:new Set(),entries:new Set()});const d=b.decided.get(e.rule.index);d.actions.add(e.action);d.entries.add(entry);}
+   else if(e.action==='deny')b.implicit.add(entry);
+  }
+ }
+ const multi=entries.length>1,indexes=set=>[...set].map(x=>entries.indexOf(x)).join(',');
+ // Destination tag only when a line decides traffic for some, not all, of the destinations behind this ACL.
+ const where=(set,all)=>multi&&set.size<all.length?destinationNames([...set].map(x=>x.seg),all.map(x=>x.seg),true):'';
+ const line=(cls,svg,text,tag='',ic='',segs='')=>`<div class="traceLine ${cls}"${ic?` data-icon="${ic}"`:''}${segs?` data-segs="${segs}"`:''}><span>${svg}</span><code>${text}</code>${tag?`<span class="traceWhere">${esc(tag)}</span>`:''}</div>`;
+ const ruleText=rule=>{const m=rule.original.match(/^(.*?)\s*\(([\d,]+)\s+matches?\)\s*$/i);return m?esc(m[1])+` <small>${esc(m[2])} hits</small>`:esc(rule.original);};
+ let html='';
+ for(const b of blocks.values()){
+  const {a}=b,bind=a.binding,head=`VLAN ${a.vlan} ${a.dir.toUpperCase()}`;
+  if(bind.state==='none'){if(a.dir==='in'||!multi)html+=`<div class="traceHead">${head} <span>· no ACL</span></div>`;continue;}
+  html+=`<div class="traceHead">${head} <span>· ${esc(bind.name||'')}</span></div>`;
+  if(bind.state==='review'||bind.acl.fatal.length){html+=line('review',icon('help'),esc(bind.state==='review'?bind.reason:bind.acl.fatal.join(' ')),'','help');continue;}
+  const quiet=[];
+  for(const rule of bind.acl.rules){
+   const d=b.decided.get(rule.index);
+   if(d){const action=d.actions.has('review')?'review':d.actions.has('deny')?'deny':'permit',[ic,cls]=ruleIcon(rule,action,exceptionAction);html+=line(cls,icon(ic),ruleText(rule),where(d.entries,b.entries),ic,indexes(d.entries));continue;}
+   if(b.entries.some(en=>en.spaces.some(s=>rule.variants.some(v=>E.spaceIntersect(s,v)))))html+=line('idle','',ruleText(rule));
+   else quiet.push(rule);
+  }
+  if(b.implicit.size)html+=line('deny',icon('block'),'implicit deny',where(b.implicit,b.entries),'block',indexes(b.implicit));
+  if(quiet.length)html+=`<details class="traceMore"><summary><span class="showText">Show ${quiet.length} line${quiet.length===1?'':'s'} that don't match</span><span class="hideText">Hide ${quiet.length} line${quiet.length===1?'':'s'} that don't match</span></summary>${quiet.map(rule=>line('idle','',ruleText(rule))).join('')}</details>`;
+ }
+ return html?`<div class="trace">${html}</div>`:'';
+}
+function verdictIcon(x){
+ if(x.status==='split')return x.policy.baseline==='permit'?['check','allow']:['block','deny'];
+ return {allow:['check','allow'],deny:['block','deny'],open:['unlock','open'],review:['help','review']}[x.status]||['help','review'];
+}
+// "Blocked except DHCP, listed addresses": the verdict plus its exceptions, each with the cell's icon.
+// text is the merge key for destinations that read the same; html is what is shown.
+function shortVerdict(x,omit=new Set()){
+ if(x.status!=='split'){const text=caption(x);return {text,html:esc(text)};}
+ const p=permissionInfo(x),parts=[...new Map(p.items.filter(i=>!(i.action==='permit'&&omit.has(i.name))).map(i=>[i.name,i.icon])).entries()];
+ if(p.hosts.permit.length||p.hosts.deny.length)parts.push(['listed addresses','host']);
+ if(p.conditions.length||p.incomplete)parts.push(['other conditions','settings']);
+ const base=parts.length?(x.policy.baseline==='permit'?'Allowed except ':'Blocked except '):(x.policy.baseline==='permit'?'Allowed':'Blocked');
+ return {text:base+parts.map(([n])=>n).join(', '),html:esc(base)+parts.map(([n,ic])=>`<span class="inlineIcon">${icon(ic)}</span>${esc(n)}`).join(', ')};
+}
+// The icon lines at the top of the panel, read against the cell.
+function whyLegend(r){
+ const row=(svg,cls,title,html,ic='',extra='')=>`<div class="why${extra}"${ic?` data-icon="${ic}" tabindex="0" role="button" aria-pressed="false"`:''}><span class="${cls}">${svg}</span><div><b>${esc(title)}</b>${html}</div></div>`;
+ if(r.status==='same')return row('—','same','Same VLAN','');
+ if(r.status!=='split'){
+  // The trace below shows the deciding lines, so only "Needs input" keeps a reason here.
+  const reviewText=[...new Set((r.diagnostics||[]).map(d=>d.message).concat(r.issues||[]))].join(' ');
+  const map={allow:['check','allow','Allowed',''],deny:['block','deny','Blocked',''],open:['unlock','open','No ACL',''],review:['help','review','Needs input',reviewText]};
+  const [ic,cls,title,text]=map[r.status];return row(icon(ic),cls,title,esc(text),ic);
+ }
+ if(r.policy?.kind==='grouped'){
+  // One line per distinct verdict. Destinations that read the same are merged even when their exact
+  // addresses differ; clicking the line lights the ACL lines (and so the addresses) behind each of them.
+  const byVerdict=new Map(),everywhere=commonServices([r]);
+  for(const g of E.groupDestinations(r.segments)){
+   const v=shortVerdict(g.result,everywhere),[ic,cls]=verdictIcon(g.result),key=ic+'|'+v.text;
+   if(!byVerdict.has(key))byVerdict.set(key,{ic,cls,v,segments:[]});
+   byVerdict.get(key).segments.push(...g.segments);
+  }
+  // Verdict first, then where. The group holding most VLANs is "All other VLANs" when the rest are listed
+  // explicitly, so no VLAN list is written twice. Hovering a destination list shows the VLAN names.
+  const blocks=[...byVerdict.values()],vlans=b=>b.segments.filter(s=>Number.isInteger(s.destination.id));
+  const biggest=blocks.reduce((m,b)=>vlans(b).length>vlans(m).length?b:m,blocks[0]);
+  const listedElsewhere=blocks.filter(b=>b!==biggest).reduce((n,b)=>n+vlans(b).length,0);
+  const useOther=listedElsewhere>0&&vlans(biggest).length>listedElsewhere;
+  const place=b=>useOther&&b===biggest?1:vlans(b).length?0:2;
+  const where=b=>useOther&&b===biggest?['All other VLANs',...b.segments.filter(s=>!Number.isInteger(s.destination.id)).map(s=>s.label)].join(' · '):destinationNames(b.segments);
+  const names=b=>vlans(b).map(s=>`VLAN ${s.destination.id}${s.destination.name?' '+s.destination.name:''}`).join('\n');
+  const sub=b=>`<div class="why sub" data-icon="dest:${b.segments.map(s=>r.segments.indexOf(s)).join(',')}" tabindex="0" role="button" aria-pressed="false"><span class="${b.cls}">${icon(b.ic)}</span><div class="subLine"><b>${b.v.html}</b><span title="${esc(useOther&&b===biggest?'':names(b))}">${esc(where(b))}</span></div></div>`;
+  return row(icon('branches'),'varied','Result differs by destination','')+blocks.sort((a,b)=>place(a)-place(b)).map(sub).join('')
+   +[...everywhere].map(n=>row(icon(serviceIcon(n)),'allow',n+' allowed','All destinations',serviceIcon(n))).join('');
+ }
+ const p=permissionInfo(r),lines=[];
+ const detail=(records,prefix='')=>esc(permissionLines({permissions:records},false,true,true).map(l=>prefix&&l.startsWith(prefix+' · ')?l.slice(prefix.length+3):l).join('; '));
+ const base=r.policy.baseline==='permit';
+ lines.push(row(icon(base?'check':'block'),base?'allow':'deny',base?'Allowed':'Blocked','Everything else.',base?'check':'block'));
+ for(const item of p.items)lines.push(row(icon(item.icon),item.action==='deny'?'deny':'allow',item.name+(item.action==='deny'?' blocked':' allowed'),detail(item.permissions,item.name),item.icon));
+ for(const action of ['permit','deny'])if(p.hosts[action].length)lines.push(row(icon('host'),action==='deny'?'deny':'allow',action==='deny'?'Blocked for listed addresses':'Allowed for listed addresses',detail(p.hosts[action]),'host'));
+ if(p.conditions.length||p.incomplete)lines.push(row(icon('settings'),r.policy.exceptionAction==='deny'?'deny':'allow','Other conditions',p.incomplete?'Summary incomplete.':detail(p.conditions),'settings'));
+ return lines.join('');
+}
+function details(srcId,dstKey,button){
+ if(!model)return;hideHover();const src=model.vlans.find(v=>v.id===srcId),dst=[...model.vlans,...model.targets].find(v=>v.key===dstKey);if(!src||!dst)return;
+ wrap.querySelectorAll('.selected,.axisSelected').forEach(x=>x.classList.remove('selected','axisSelected'));
+ const selectedCell=button?.closest('.cell');if(selectedCell)selectedCell.classList.add('selected');
+ // The open path is shown as a crosshair: its row and column use the same band as header highlights.
+ litRow=String(srcId);litCol=dstKey;applyHighlights();
+ selectedPath={srcId,dstKey};scrollBeforeDetails={left:wrap.scrollLeft,top:wrap.scrollTop};$('#detailsTitle').textContent=`VLAN ${src.id} → ${dst.kind==='vlan'?'VLAN '+dst.id:dst.text}`;
+ const r=model.results[`${src.key}>${dst.key}`];
+ $('#detailSrc').textContent=label(src);$('#detailSrcNet').textContent=src.text;$('#detailDst').textContent=label(dst);$('#detailDstNet').textContent=dst.kind==='vlan'?dst.text:`${E.sizeOf(dst.addresses).toLocaleString()} addresses in target`;
+ pinnedIcon=null;
+ $('#detailWhy').innerHTML=whyLegend(r)+(r.routingNote?`<div class="why"><span class="review">${icon('help')}</span><div><b>Routing</b>${esc(r.routingNote.replace(/, routing not confirmed$/,', not confirmed'))}</div></div>`:'');
+ // Trace entries: one per destination evaluated, with the source x destination space used to tell greyed
+ // lines (touch this path, decide nothing) from lines that don't match it at all.
+ const entries=(r.segments||[{label:scopeName(dst),destination:dst,result:r}]).map(seg=>({seg,result:seg.result,spaces:src.addresses.flatMap(s=>seg.destination.addresses.map(d=>E.space(s,d)))}));
+ const exceptionAction=r.status==='split'?(r.policy?.kind==='grouped'?'permit':r.policy.exceptionAction):null;
+ $('#detailRules').innerHTML=traceHtml(entries,exceptionAction);
+ // User-opened paths move focus into the panel; refreshes (e.g. Icon key save) leave focus where it is.
+ if(button)returnFocus=button;
+ // Side panel and config card share the space beside the matrix: opening the panel hides the config
+ // (through toggleInput, so the Config button state stays true). Config does the reverse.
+ if(!window.matchMedia('(max-width:760px)').matches)toggleInput(true);
+ openDetails();dialog.scrollTop=0;
+ // The side panel narrows the matrix; keep the chosen cell visible beside it (scroll-padding clears the sticky headers).
+ selectedCell?.scrollIntoView({block:'nearest',inline:'nearest'});
+ if(button)$('#detailsTitle').focus({preventScroll:true});
+}
+// dialogModal is tracked instead of dialog.matches(':modal'), which throws in browsers without that selector.
+let changingDialogMode=false,returnFocus=null,restoringFocus=false,dialogModal=false;
+function showDialog(modal){dialogModal=modal;modal?dialog.showModal():dialog.show();}
+function openDetails(){const modal=window.matchMedia('(max-width:760px)').matches;if(dialog.open&&dialogModal!==modal){const top=dialog.scrollTop,active=document.activeElement;changingDialogMode=true;dialog.close();showDialog(modal);dialog.scrollTop=top;changingDialogMode=false;if(dialog.contains(active))active.focus({preventScroll:true});}else if(!dialog.open){showDialog(modal);}document.body.classList.toggle('detailsOpen',!modal&&dialog.open);}
+window.matchMedia('(max-width:760px)').addEventListener('change',()=>{if(dialog.open)openDetails();});
+function finish(m,id){if(id!==job)return;rowWideCache=new Map();if(worker){worker.terminate();worker=null;}setBusy(false);model=m;inventoryTab=inventoryData(m).unresolved?'notes':'svis';renderInventory();setupTools(m);if(!m.vlans.length){status.textContent='No valid IPv4 VLAN subnets found.';wrap.innerHTML='<div class="empty">No valid IPv4 VLAN subnets found.</div>'+[...m.errors,...m.warnings].map(t=>`<div class="notice">${esc(t)}</div>`).join('');return;}for(const id of ['matrixBar','toolSep','inventoryToggle','packetToggle','exportMenu','iconKey'])$('#'+id).hidden=false;session.set(SESSION.config,input.value);session.set(SESSION.analyzed,'1');updateClearButton();render();updateWorkbookButtons();toggleInput(true);status.textContent=`Analyzed ${m.vlans.length} VLANs and ${m.acls.length} ACLs.`;}
+function fail(message,id){if(id!==job)return;stop();resetOutput('Analysis stopped.');toggleInput(false);status.className='status error';status.textContent=message;}
+// restoring: re-running the saved paste after a refresh. The matrix area says so, with progress, and the
+// config card stays collapsed as it was, so the page doesn't jump.
+function analyze(restoring=false){
+ stop();resetOutput(restoring?'Restoring your last analysis…':'Evaluating ACLs…');if(restoring){toggleInput(true);wrap.querySelector('.empty')?.classList.add('restoring');}const text=input.value.trim(),id=job;if(!text){status.textContent='Paste SVI and ACL output first.';return;}setBusy(true);status.textContent='Parsing configuration…';
+ const backgroundFailure=()=>fail('Analysis could not start. Use a current Edge or Chrome.',id);
+ // The worker runs the page's own engine source from a blob URL, so the file works from disk with no server.
+ const workerSource=$('#aclEngine').textContent+`\nself.onmessage=e=>{try{self.postMessage({model:AclEngine.buildModel(e.data,(done,total)=>self.postMessage({done,total}))});}catch(e){self.postMessage({error:e.message});}};`;
+ let url;
+ try{
+  url=URL.createObjectURL(new Blob([workerSource],{type:'text/javascript'}));
+  worker=new Worker(url);URL.revokeObjectURL(url);
+  worker.onmessage=e=>{
+   if(id!==job)return;
+   const d=e.data;
+   if(d.error)fail(d.error,id);
+   else if(d.model)finish(d.model,id);
+   else{status.textContent=`Evaluating ${d.done} / ${d.total} source VLANs…`;const msg=restoring&&wrap.querySelector('.empty.restoring');if(msg)msg.textContent=`Restoring your last analysis… ${d.done} / ${d.total} VLANs`;}
+  };
+  worker.onerror=e=>{e.preventDefault();worker?.terminate();worker=null;backgroundFailure();};
+  worker.postMessage(text);
+ }catch(e){if(url)URL.revokeObjectURL(url);backgroundFailure();}
+}
+const EXAMPLE=`Extended IP access list VLAN13_IN
+    10 permit tcp any host 203.0.113.53 eq 443
+    20 permit udp any host 203.0.113.53 eq domain
+    120 deny ip any 10.0.0.0 0.255.255.255
+    200 permit ip any any
+!
+interface Vlan40
+ description No ACL attached
+ ip address 192.168.40.1 255.255.255.0
+!
+interface Vlan12
+ description Users - wildcard exception
+ ip address 192.168.12.1 255.255.255.0
+ ip helper-address 192.0.2.32
+ ip access-group VLAN12_IN in
+!
+interface Vlan51
+ description Restricted servers
+ ip address 10.50.13.1 255.255.255.0
+!
+Extended IP access list VLAN12_IN
+    10 permit udp any eq bootpc any eq bootps
+    20 permit udp any eq bootps any eq bootpc
+    45 permit ip any host 203.0.113.53
+    50 permit ip any 10.0.12.0 0.255.0.255 (944232 matches)
+    90 deny ip any 10.0.0.0 0.255.255.255
+    100 permit ip any any (555555 matches)
+!
+interface Vlan50
+ description Pattern-matching servers
+ ip address 10.50.12.1 255.255.255.0
+!
+interface Vlan13
+ description Staff
+ ip address 192.168.13.1 255.255.255.0
+ ip access-group VLAN13_IN in
+!
+interface Vlan60
+ description Explicit permit
+ ip address 192.168.60.1 255.255.255.0
+ ip access-group VLAN60_IN in
+!
+ip access-list extended VLAN60_IN
+ 10 permit ip any any
+!`;
+
+function setupTools(m){
+ const opts=m.vlans.map(v=>`<option value="${v.id}">VLAN ${v.id}${v.vrf&&v.vrf!=='default'?' · VRF '+esc(v.vrf):''}</option>`).join('');
+ // Example addresses from the loaded config: the first host of the first two VLANs.
+ const host=v=>v&&E.ipText((v.addresses[0].v+10)>>>0);if(m.vlans[0])$('#packetSrc').placeholder=host(m.vlans[0]);if(m.vlans[1])$('#packetDst').placeholder=host(m.vlans[1]);
+ $('#packetSrcVlan').innerHTML='<option value="">Auto-detect</option>'+opts;
+ $('#packetDstVlan').innerHTML='<option value="">Auto-detect</option>'+opts;
+}
+function focusSource(id){focusedSource=id;$('#sourceSearch').value='';render();wrap.scrollTop=0;}
+function focusDestination(key){focusedDestination=key;$('#search').value='';$('#groupFilter').value='';render();wrap.scrollLeft=0;}
+// ---------------------------------------------------------------------------------------------------
+// Excel export: a real .xlsx built in the page (no library, works offline). The matrix sheet follows the
+// classic VLAN access-matrix layout (vertical headers, "VLAN | name | subnet" rows, x / ! / blank cells with
+// notes); a Paths sheet lists every source -> destination with filters. Several switches can be collected
+// into one workbook, one sheet each.
+// ---------------------------------------------------------------------------------------------------
+const XL={
+ // Style indexes into cellXfs below.
+ head:1,headDeny:2,label:3,labelAcl:4,labelReview:5,cell:6,cellAcl:7,cellDeny:8,cellReview:9,pathHead:10,pathBody:11,legend:12,legendAcl:13,legendReview:14,legendDeny:15,title:16
+};
+const xlEsc=s=>String(s??'').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const xlCol=n=>{let s='';for(n++;n>0;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s;};
+// Deciding ACL lines for one path, e.g. "VLAN12_IN: 90 deny ip any 10.0.0.0 0.255.255.255".
+function decidingLines(r){
+ const seen=new Set();
+ for(const x of r.segments?r.segments.map(s=>s.result):[r])for(const e of x.reasons||[])
+  if(e.action!=='open')seen.add((e.name?e.name+': ':'')+(e.rule?e.rule.original.replace(/\s+\([\d,]+\s+matches?\)/ig,''):e.action==='deny'?'implicit deny':e.note));
+ return [...seen].filter(Boolean).join('\n');
+}
+// Cell mark and note for one path, using the sheet's convention (x allowed, ! partial, blank blocked).
+function sheetMark(r,hidden){
+ if(r.status==='same'||r.status==='allow')return {mark:'x'};
+ if(r.status==='open')return {mark:''};
+ if(r.status==='deny')return {mark:''};
+ if(r.status==='review')return {mark:'?',note:'Needs input: '+[...new Set((r.diagnostics||[]).map(d=>d.message).concat(r.issues||[]))].join(' ')};
+ const lines=permissionLines(r.policy,false,true,true).filter(l=>![...hidden].some(n=>l.startsWith(n+' · ')));
+ if(!lines.length)return {mark:r.policy.baseline==='permit'?'x':''};
+ return {mark:'!',note:(r.policy.baseline==='permit'?'Allowed except:\n':'Allowed only:\n')+lines.join('\n')+(r.policy.complete?'':'\n(summary incomplete; see the Paths sheet)')};
+}
+function deviceName(){const d=model.vlans.find(v=>v.device)?.device;return d||'Switch';}
+// One switch -> {name, matrix rows, notes, paths rows}. Stored so several switches can share a workbook.
+function buildSwitchSheets(){
+ const m=model,cols=[...m.groups.deny,...m.groups.allowed,...m.groups.external],notes=[];
+ const header=[{v:'',s:XL.label}].concat(cols.map(d=>({v:d.group==='deny'&&d.kind!=='vlan'?`[DENY ${d.text}]`:d.kind==='vlan'?`VLAN ${d.id}`:d.text,s:d.group==='deny'&&d.kind!=='vlan'?XL.headDeny:XL.head})));
+ const rows=[header];
+ m.vlans.forEach((src,ri)=>{
+  const hasAcl=['in','out'].some(dir=>src.bindings[dir].state!=='none');
+  const review=cols.some(d=>m.results[`${src.key}>${d.key}`]?.status==='review')||src.problems.length;
+  const tone=review?'Review':hasAcl?'Acl':'';
+  const wide=rowWide(src.key),row=[{v:`VLAN ${src.id} | ${src.name||'(no description)'} | ${src.text}`,s:XL['label'+tone]}];
+  const labelNote=[hasAcl?`IN: ${src.bindings.in.name||'no ACL'} · OUT: ${src.bindings.out.name||'no ACL'}`:'No ACL',wide.size?`Allowed everywhere: ${[...wide].join(', ')}`:'',src.vrf&&src.vrf!=='default'?`VRF ${src.vrf}`:''].filter(Boolean).join('\n');
+  notes.push({r:ri+1,c:0,text:labelNote});
+  cols.forEach((d,ci)=>{
+   const r=m.results[`${src.key}>${d.key}`];
+   if(d.group==='deny'&&d.kind!=='vlan'){
+    // [DENY ...] columns record whether this VLAN's ACL contains that deny, as in the classic sheet.
+    const has=(d.refs||[]).some(x=>x.vlan===src.id&&x.action==='deny');
+    row.push({v:has?'x':'',s:XL.cellDeny});return;
+   }
+   const {mark,note}=sheetMark(r,wide);
+   row.push({v:mark,s:r.status==='review'?XL.cellReview:XL['cell'+tone]});
+   if(note)notes.push({r:ri+1,c:ci+1,text:`VLAN ${src.id} → ${d.kind==='vlan'?'VLAN '+d.id:d.text}\n${note}`});
+  });
+  rows.push(row);
+ });
+ // Legend to the right of the matrix, as in the classic sheet.
+ const lc=cols.length+2,legend=[['Has no ACL = access to all VLANs',XL.legend],['Has ACL',XL.legendAcl],['Needs input (see note)',XL.legendReview],['x = allowed · ! = partly allowed (see note) · blank = blocked',XL.legend],['[DENY …] columns: x = the VLAN\'s ACL denies that network',XL.legendDeny],[`From ${deviceName()} · VLAN ACL Matrix v${E.VERSION} · ${new Date().toLocaleString()}`,XL.legend]];
+ legend.forEach(([v,s],i)=>{const r=rows[i+2]||(rows[i+2]=[]);while(r.length<lc)r.push(null);r[lc]={v,s};});
+ // Paths: every source -> VLAN / network destination, filterable.
+ const paths=[['Source VLAN','Source name','Source subnet','Destination','Destination name','Result','Allowed / blocked','Deciding ACL lines','Notes'].map(v=>({v,s:XL.pathHead}))];
+ for(const src of m.vlans)for(const d of [...m.groups.allowed,...m.groups.external]){
+  const r=m.results[`${src.key}>${d.key}`];if(!r||r.status==='same')continue;
+  const detail=r.status==='split'?(r.policy.baseline==='permit'?'Allowed except: ':'Allowed only: ')+permissionLines(r.policy,false,true,true).join('; '):'';
+  paths.push([src.id,src.name,src.text,d.kind==='vlan'?'VLAN '+d.id:d.text,d.kind==='vlan'?(d.name||''):d.other?'Not a VLAN or named network':'Network (not a VLAN)',caption(r),detail,decidingLines(r),[r.routingNote,...(r.diagnostics||[]).map(x=>x.message)].filter(Boolean).join('\n')].map(v=>({v,s:XL.pathBody})));
+ }
+ return {name:deviceName(),rows,notes,cols:cols.length,paths};
+}
+function sheetXml(rows,{widths,freeze,headerHeight,filter,comments}){
+ const body=rows.map((row,ri)=>{
+  if(!row)return '';
+  const cells=row.map((c,ci)=>{
+   if(!c)return '';
+   const ref=xlCol(ci)+(ri+1);
+   if(typeof c.v==='number')return `<c r="${ref}" s="${c.s}"><v>${c.v}</v></c>`;
+   return c.v===''?`<c r="${ref}" s="${c.s}"/>`:`<c r="${ref}" s="${c.s}" t="inlineStr"><is><t xml:space="preserve">${xlEsc(c.v)}</t></is></c>`;
+  }).join('');
+  return `<row r="${ri+1}"${ri===0&&headerHeight?` ht="${headerHeight}" customHeight="1"`:''}>${cells}</row>`;
+ }).join('');
+ const colXml=widths.map(([min,max,w])=>`<col min="${min}" max="${max}" width="${w}" customWidth="1"/>`).join('');
+ const pane=freeze?`<pane xSplit="${freeze[0]}" ySplit="${freeze[1]}" topLeftCell="${xlCol(freeze[0])}${freeze[1]+1}" activePane="bottomRight" state="frozen"/>`:'';
+ return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${colXml}</cols><sheetData>${body}</sheetData>${filter?`<autoFilter ref="${filter}"/>`:''}<pageMargins left="0.5" right="0.5" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>${comments?'<legacyDrawing r:id="rId1"/>':''}</worksheet>`;
+}
+function commentsXml(notes){return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><authors><author>VLAN ACL Matrix</author></authors><commentList>${notes.map(n=>`<comment ref="${xlCol(n.c)}${n.r+1}" authorId="0"><text><r><t xml:space="preserve">${xlEsc(n.text)}</t></r></text></comment>`).join('')}</commentList></comments>`;}
+function vmlXml(notes,sheetNo){
+ return `<xml xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><o:shapelayout v:ext="edit"><o:idmap v:ext="edit" data="${sheetNo}"/></o:shapelayout><v:shapetype id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe"><v:stroke joinstyle="miter"/><v:path gradientshapeok="t" o:connecttype="rect"/></v:shapetype>`+
+  notes.map((n,i)=>`<v:shape id="_x0000_s${sheetNo*1024+i+1}" type="#_x0000_t202" style="position:absolute;margin-left:80pt;margin-top:2pt;width:240pt;height:${Math.min(220,40+14*n.text.split('\n').length)}pt;z-index:${i+1};visibility:hidden" fillcolor="#ffffe1" o:insetmode="auto"><v:fill color2="#ffffe1"/><v:shadow on="t" color="black" obscured="t"/><v:path o:connecttype="none"/><v:textbox style="mso-direction-alt:auto"><div style="text-align:left"></div></v:textbox><x:ClientData ObjectType="Note"><x:MoveWithCells/><x:SizeWithCells/><x:Anchor>${n.c+1}, 15, ${n.r}, 2, ${n.c+5}, 15, ${n.r+6}, 16</x:Anchor><x:AutoFill>False</x:AutoFill><x:Row>${n.r}</x:Row><x:Column>${n.c}</x:Column></x:ClientData></v:shape>`).join('')+'</xml>';
+}
+const XL_STYLES=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="13"/><name val="Calibri"/><family val="2"/></font></fonts>`+
+`<fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>`+['FFC000','92D050','00B0F0','FFFF00'].map(c=>`<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`).join('')+`</fills>`+
+`<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right><top style="thin"><color rgb="FFBFBFBF"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom><diagonal/></border></borders>`+
+`<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="17">`+
+[
+ '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>',
+ '<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment textRotation="90" wrapText="1" horizontal="center" vertical="bottom"/></xf>',
+ '<xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment textRotation="90" wrapText="1" horizontal="center" vertical="bottom"/></xf>',
+ '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>',
+ '<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>',
+ '<xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>',
+ '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>',
+ '<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>',
+ '<xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>',
+ '<xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>',
+ '<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>',
+ '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>',
+ '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>',
+ '<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>',
+ '<xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>',
+ '<xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>',
+ '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+].join('')+`</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+// Minimal ZIP writer (stored entries) with CRC-32, enough for an .xlsx package.
+const crcTable=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=crcTable[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zipBlob(files,type){
+ const enc=new TextEncoder(),parts=[],central=[];let offset=0;
+ for(const f of files){
+  const name=enc.encode(f.name),data=enc.encode(f.data),crc=crc32(data);
+  const head=(sig,size)=>{const v=new DataView(new ArrayBuffer(size));v.setUint32(0,sig,true);return v;};
+  const l=head(0x04034b50,30);l.setUint16(4,20,true);l.setUint16(6,0x0800,true);l.setUint16(12,0x21,true);l.setUint32(14,crc,true);l.setUint32(18,data.length,true);l.setUint32(22,data.length,true);l.setUint16(26,name.length,true);
+  parts.push(new Uint8Array(l.buffer),name,data);
+  const c=head(0x02014b50,46);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(14,0x21,true);c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,name.length,true);c.setUint32(42,offset,true);
+  central.push(new Uint8Array(c.buffer),name);offset+=30+name.length+data.length;
+ }
+ const size=central.reduce((n,a)=>n+a.length,0),e=new DataView(new ArrayBuffer(22));
+ e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,size,true);e.setUint32(16,offset,true);
+ return new Blob([...parts,...central,new Uint8Array(e.buffer)],{type});
+}
+function workbookBlob(switches){
+ const files=[],sheets=[],used=new Set();
+ const safe=n=>{let s=String(n).replace(/[\[\]:*?\/\\]/g,'-').slice(0,28)||'Sheet';let out=s,i=2;while(used.has(out.toLowerCase()))out=s.slice(0,25)+' '+(i++);used.add(out.toLowerCase());return out;};
+ for(const sw of switches){
+  const no=sheets.length+1,name=safe(sw.name);
+  files.push({name:`xl/worksheets/sheet${no}.xml`,data:sheetXml(sw.rows,{widths:[[1,1,58],[2,sw.cols+1,3.7],[sw.cols+3,sw.cols+3,62]],freeze:[1,1],headerHeight:110,comments:sw.notes.length})});
+  if(sw.notes.length){
+   files.push({name:`xl/worksheets/_rels/sheet${no}.xml.rels`,data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing" Target="../drawings/vmlDrawing${no}.vml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="../comments${no}.xml"/></Relationships>`});
+   files.push({name:`xl/comments${no}.xml`,data:commentsXml(sw.notes)},{name:`xl/drawings/vmlDrawing${no}.vml`,data:vmlXml(sw.notes,no)});
+  }
+  sheets.push({name,no,comments:!!sw.notes.length});
+  const pno=sheets.length+1,last=sw.paths.length;
+  files.push({name:`xl/worksheets/sheet${pno}.xml`,data:sheetXml(sw.paths,{widths:[[1,1,10],[2,2,26],[3,3,18],[4,4,20],[5,5,26],[6,6,22],[7,7,60],[8,8,64],[9,9,40]],freeze:[0,1],filter:`A1:I${last}`})});
+  sheets.push({name:safe(sw.name+' paths'),no:pno,filter:`A1:I${last}`});
+ }
+ const wbRels=sheets.map(s=>`<Relationship Id="rId${s.no}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${s.no}.xml"/>`).join('')+`<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`;
+ const filters=sheets.map((s,i)=>s.filter?`<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${s.name.replace(/'/g,"''")}'!$A$1:$I$${s.filter.split('I')[1]}</definedName>`:'').join('');
+ files.unshift(
+  {name:'[Content_Types].xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="vml" ContentType="application/vnd.openxmlformats-officedocument.vmlDrawing"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>`+sheets.map(s=>`<Override PartName="/xl/worksheets/sheet${s.no}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`+(s.comments?`<Override PartName="/xl/comments${s.no}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml"/>`:'')).join('')+`</Types>`},
+  {name:'_rels/.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+  {name:'xl/workbook.xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>${sheets.map(s=>`<sheet name="${xlEsc(s.name)}" sheetId="${s.no}" r:id="rId${s.no}"/>`).join('')}</sheets>${filters?`<definedNames>${filters}</definedNames>`:''}</workbook>`},
+  {name:'xl/_rels/workbook.xml.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${wbRels}</Relationships>`},
+  {name:'xl/styles.xml',data:XL_STYLES}
+ );
+ return zipBlob(files,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+}
+function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+// Switches collected for a multi-switch workbook (this tab only), keyed by device name.
+const workbook=new Map();
+// Multi-switch file: Add shows how many switches are in so far; Download appears once there are two or more
+// (with one switch, "Excel workbook" already gives the same file).
+function updateWorkbookButtons(){
+ const n=workbook.size,named=model&&model.vlans.some(v=>v.device),who=named?deviceName():'this switch',inFile=model&&workbook.has(deviceName());
+ const count=k=>`${k} switch${k===1?'':'es'}`;
+ $('#workbookAdd').innerHTML=(inFile?'Replace in multi-switch file':'Add to multi-switch file')+`<small>${esc(named?deviceName():'This switch')}${inFile?' already added':''}${n?' · '+count(n)+' in file':''}</small>`;
+ $('#workbookDownload').hidden=n<2;
+ $('#workbookDownload').innerHTML=`Download multi-switch file<small>${count(n)}: ${esc([...workbook.keys()].join(', '))}</small>`;
+}
+$('#excelBtn').addEventListener('click',()=>{if(!model)return;const sw=buildSwitchSheets();download(workbookBlob([sw]),`ACL_Matrix_${sw.name.replace(/[^\w.-]+/g,'_')}.xlsx`);});
+$('#workbookAdd').addEventListener('click',()=>{if(!model)return;const sw=buildSwitchSheets();workbook.set(sw.name,sw);updateWorkbookButtons();saveWorkbook();});
+$('#workbookDownload').addEventListener('click',()=>{if(workbook.size)download(workbookBlob([...workbook.values()]),'ACL_Matrix.xlsx');});
+function packetLookup(){
+ if(!model)return;
+ const out=$('#packetResult');
+ try{
+  const si=E.ipInt($('#packetSrc').value.trim()),di=E.ipInt($('#packetDst').value.trim());if(si===null||di===null)throw Error('Enter valid source and destination IPv4 addresses.');
+  const choose=(ip,id,isSource,vrf)=>{
+   let candidates=model.vlans.filter(v=>v.addresses.some(a=>E.cubeHit(a,ip)));
+   if(id){const chosen=candidates.find(v=>v.id===+id);if(!chosen)throw Error('The selected '+(isSource?'source':'destination')+' VLAN does not contain that IP.');return chosen;}
+   if(candidates.length>1&&vrf!==undefined){const local=candidates.filter(v=>v.vrf===vrf);if(local.length)candidates=local;}
+   if(candidates.length>1)throw Error('That '+(isSource?'source':'destination')+' IP is in several VLANs; pick one.');
+   if(!candidates.length&&isSource)throw Error('Source IP is not in any pasted VLAN.');return candidates[0]||null;
+  };
+  const sv=choose(si,$('#packetSrcVlan').value,true),dv=choose(di,$('#packetDstVlan').value,false,sv.vrf);
+  const src={...sv,addresses:[E.cube(si,0xffffffff)]},dst=dv?{...dv,addresses:[E.cube(di,0xffffffff)]}:{kind:'external',addresses:[E.cube(di,0xffffffff)]};
+  const packet=E.space(src.addresses[0],dst.addresses[0]),protocolValue=$('#packetProto').value==='other'?$('#packetNumber').value:$('#packetProto').value,proto=+protocolValue;if(!/^\d+$/.test(protocolValue)||proto<0||proto>255)throw Error('Enter an IP protocol number from 0 to 255.');packet[2]=[proto,proto];
+  const number=(id,max)=>{const value=$('#'+id).value;if(!/^\d+$/.test(value)||+value>max)throw Error('Enter a valid '+(max===255?'ICMP type/code (0–255).':'port (0–65535).'));return +value;};
+  if(proto===6||proto===17){const sp=number('packetSport',65535),dp=number('packetDport',65535);packet[3]=[sp,sp];packet[4]=[dp,dp];}
+  if(proto===6)packet[7]=[$('#packetAck').checked?1:0,$('#packetAck').checked?1:0];
+  if(proto===1){const ty=number('packetType',255),co=number('packetCode',255);packet[5]=[ty,ty];packet[6]=[co,co];}
+  const r=E.evaluatePath(src,dst,packet);
+  // Name the VLAN actually evaluated; a reused subnet can exist in several VRFs.
+  const where=(ip,v)=>E.ipText(ip)+(v?` (VLAN ${v.id}${v.vrf&&v.vrf!=='default'?' · VRF '+v.vrf:''})`:' (not a VLAN)');
+  out.innerHTML=`<div class="resultLine"><span class="resultBadge ${r.status}">${caption(r.status)}</span><p>${esc(where(si,sv))} → ${esc(where(di,dv))} · ${proto===6?'TCP':proto===17?'UDP':proto===1?'ICMP':'IP protocol '+proto}</p></div>${!dv?'<p class="scopeNote">External destination: source IN policy only; egress policy is unknown.</p>':''}${r.issues.map(m=>`<p class="notice error">${esc(m)}</p>`).join('')}${traceHtml([{seg:null,result:r,spaces:[packet]}],null)}`;
+ }catch(e){out.innerHTML=`<p class="notice error">${esc(e.message)}</p>`;}
+}
+wrap.addEventListener('click',e=>{const src=e.target.closest('[data-focus-src]'),dst=e.target.closest('[data-focus-dst]');if(src)toggleHighlight('row',src.dataset.focusSrc);if(dst)toggleHighlight('col',dst.dataset.focusDst);});
+$('#focusBar').addEventListener('click',e=>{if(e.target.closest('#clearFocus')){focusedSource=null;focusedDestination=null;render();}});
+$('#inventoryTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b){inventoryTab=b.dataset.tab;renderInventory();$(`#inventoryTabs [data-tab="${inventoryTab}"]`).focus();}});
+$('#inventoryBody').addEventListener('click',e=>{const b=e.target.closest('[data-inventory-source]');if(b){showPanel(null);focusSource(+b.dataset.inventorySource);}});
+$('#focusSource').addEventListener('click',()=>{if(selectedPath){scrollBeforeDetails=null;dialog.close();focusSource(selectedPath.srcId);}});
+$('#focusDestination').addEventListener('click',()=>{if(selectedPath){scrollBeforeDetails=null;dialog.close();focusDestination(selectedPath.dstKey);}});
+dialog.addEventListener('close',()=>{if(changingDialogMode||dialog.open)return;hideHover();document.body.classList.remove('detailsOpen');
+ // The outline and crosshair mark the path shown in the panel; once it closes, the returned focus ring is enough.
+ wrap.querySelectorAll('.selected,.axisSelected').forEach(x=>x.classList.remove('selected','axisSelected'));litRow=null;litCol=null;applyHighlights();if(scrollBeforeDetails){wrap.scrollLeft=scrollBeforeDetails.left;wrap.scrollTop=scrollBeforeDetails.top;scrollBeforeDetails=null;}if(returnFocus?.isConnected&&(!document.activeElement||document.activeElement===document.body||dialog.contains(document.activeElement))){restoringFocus=true;returnFocus.focus({preventScroll:true});restoringFocus=false;}returnFocus=null;});
+$('#packetForm').addEventListener('submit',e=>{e.preventDefault();packetLookup();});
+$('#packetForm').addEventListener('input',()=>{$('#packetResult').innerHTML='';});
+function updatePacketFields(){const other=$('#packetProto').value==='other',p=+(other?$('#packetNumber').value:$('#packetProto').value);$('#packetNumberLabel').hidden=!other;$('#packetNumber').required=other;document.querySelectorAll('.portField').forEach(el=>el.hidden=p!==6&&p!==17);document.querySelectorAll('.icmpField').forEach(el=>el.hidden=p!==1);$('#packetAckLabel').hidden=p!==6;}
+$('#packetProto').addEventListener('change',updatePacketFields);
+$('#packetNumber').addEventListener('input',updatePacketFields);
+// Classic scrollbars take layout space; overlay ones (Windows 11, phones) don't, so only those need edge padding.
+function detectOverlayScrollbars(){const probe=document.createElement('div');probe.style.cssText='position:absolute;top:-200px;width:100px;height:100px;overflow:scroll';document.body.append(probe);document.body.classList.toggle('overlayScrollbars',probe.offsetWidth===probe.clientWidth);probe.remove();}
+detectOverlayScrollbars();window.addEventListener('resize',detectOverlayScrollbars);
+// Matrix height comes from the flex layout in CSS; the Icon key starts collapsed on phones to leave room for the grid.
+if(window.matchMedia('(max-width:760px)').matches)$('#iconKey').open=false;
+// Inventory and Packet lookup open one at a time under the top bar.
+const MIN_GRID_HEIGHT=240,panels={inventory:['inventoryToggle','inventoryPanel'],packet:['packetToggle','packetPanel']};
+function showPanel(which){
+ for(const [key,[btn,panel]] of Object.entries(panels)){const open=key===which&&$('#'+panel).hidden;$('#'+panel).hidden=!open;$('#'+btn).setAttribute('aria-expanded',String(open));}
+ if(which==='packet'&&!$('#packetPanel').hidden)$('#packetSrc').focus();
+}
+$('#inventoryToggle').addEventListener('click',()=>showPanel('inventory'));
+$('#packetToggle').addEventListener('click',()=>showPanel('packet'));
+document.querySelectorAll('[data-close-panel]').forEach(b=>b.addEventListener('click',()=>{const panel=b.closest('.toolsPanel');panel.hidden=true;const key=Object.keys(panels).find(k=>panels[k][1]===panel.id);$('#'+panels[key][0]).setAttribute('aria-expanded','false');$('#'+panels[key][0]).focus();}));
+
+function closeExportMenu(){$('#exportList').hidden=true;$('#exportToggle').setAttribute('aria-expanded','false');}
+$('#exportToggle').addEventListener('click',()=>{const open=$('#exportList').hidden;$('#exportList').hidden=!open;$('#exportToggle').setAttribute('aria-expanded',String(open));if(open)$('#exportList button:not(:disabled)').focus();});
+$('#exportList').addEventListener('click',e=>{if(e.target.closest('button:not(:disabled)'))closeExportMenu();});
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('#exportMenu'))closeExportMenu();});
+$('#exportMenu').addEventListener('keydown',e=>{
+ const items=[...$('#exportList').querySelectorAll('button:not(:disabled)')],i=items.indexOf(document.activeElement);
+ if(e.key==='Escape'){closeExportMenu();$('#exportToggle').focus();e.stopPropagation();}
+ else if((e.key==='ArrowDown'||e.key==='ArrowUp')&&items.length){e.preventDefault();items[(i+(e.key==='ArrowDown'?1:-1)+items.length)%items.length].focus();}
+});
+// Header clicks toggle a highlight band on that row / column (one of each; together they form a crosshair).
+let litRow=null,litCol=null;
+// Hovering a cell tints its row and column headers, so the pointer's position is clear in a large grid.
+let hoverAxis=[];
+function clearHoverAxis(){hoverAxis.forEach(x=>x.classList.remove('axisHover'));hoverAxis=[];}
+wrap.addEventListener('pointerover',e=>{
+ const cell=e.target.closest('.cell');if(cell&&hoverAxis.cell===cell)return;clearHoverAxis();if(!cell)return;
+ hoverAxis=[cell.closest('tr').querySelector('.rowHead'),[...wrap.querySelectorAll('th[data-destination]')].find(th=>th.dataset.destination===cell.dataset.dst)].filter(Boolean);
+ hoverAxis.cell=cell;hoverAxis.forEach(x=>x.classList.add('axisHover'));
+});
+wrap.addEventListener('pointerleave',clearHoverAxis);
+function toggleHighlight(kind,value){if(kind==='row')litRow=litRow===value?null:value;else litCol=litCol===value?null:value;applyHighlights();}
+function applyHighlights(){
+ wrap.querySelectorAll('.rowLit,.colLit').forEach(el=>el.classList.remove('rowLit','colLit'));
+ wrap.querySelectorAll('[data-focus-src],[data-focus-dst]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.focusSrc===litRow||b.dataset.focusDst===litCol)));
+ if(litRow)wrap.querySelector(`tr[data-source="${litRow}"]`)?.classList.add('rowLit');
+ if(litCol){wrap.querySelectorAll('th[data-destination]').forEach(th=>{if(th.dataset.destination===litCol)th.classList.add('colLit');});wrap.querySelectorAll('.cell').forEach(c=>{if(c.dataset.dst===litCol)c.parentElement.classList.add('colLit');});}
+}
+$('#analyzeBtn').addEventListener('click',()=>analyze());
+$('#cancelBtn').addEventListener('click',()=>{stop();resetOutput('Analysis cancelled.');status.textContent='Cancelled.';});
+$('#exampleBtn').addEventListener('click',()=>{input.value=EXAMPLE;saveConfig();analyze();});
+wrap.addEventListener('click',e=>{if(e.target.closest('[data-load-example]'))$('#exampleBtn').click();});
+// ------------------------------------------------------------------ session: survives a refresh, not a closed tab
+// The paste, whether it was analyzed, and the multi-switch file are kept in sessionStorage (this tab only).
+// localStorage is avoided on purpose: for pages opened from disk it is shared by every local HTML file.
+const SESSION={config:'vlan-acl-config',analyzed:'vlan-acl-analyzed',workbook:'vlan-acl-workbook'},selfTesting=location.hash==='#selftest';
+const session={
+ get(k){try{return sessionStorage.getItem(k);}catch{return null;}},
+ set(k,v){if(selfTesting)return;try{sessionStorage.setItem(k,v);}catch{}},
+ drop(...ks){try{for(const k of ks)sessionStorage.removeItem(k);}catch{}}
+};
+let saveTimer=null;
+function saveConfig(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{session.set(SESSION.config,input.value);updateClearButton();},300);}
+// The multi-switch file can be large, so it is gzip-compressed before it is stored.
+async function saveWorkbook(){
+ if(selfTesting)return;
+ if(!workbook.size)return session.drop(SESSION.workbook);
+ try{
+  const gz=new Blob([JSON.stringify([...workbook])]).stream().pipeThrough(new CompressionStream('gzip'));
+  const bytes=new Uint8Array(await new Response(gz).arrayBuffer());let bin='';for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));
+  session.set(SESSION.workbook,btoa(bin));
+ }catch{}
+}
+async function restoreWorkbook(){
+ const b64=session.get(SESSION.workbook);if(!b64)return;
+ try{
+  const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+  const json=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  for(const [k,v] of JSON.parse(json))workbook.set(k,v);updateWorkbookButtons();updateClearButton();
+ }catch{session.drop(SESSION.workbook);}
+}
+// Clear starts over (paste, results, multi-switch file, saved session). A second click confirms it.
+let clearArmed=null;
+function updateClearButton(){$('#clearAll').hidden=!input.value.trim()&&!model&&!workbook.size;}
+function clearAll(){
+ stop();input.value='';workbook.clear();session.drop(SESSION.config,SESSION.analyzed,SESSION.workbook);
+ resetOutput();toggleInput(false);status.textContent='';updateWorkbookButtons();updateClearButton();input.focus();
+}
+$('#clearAll').addEventListener('click',()=>{
+ if(clearArmed){clearTimeout(clearArmed);clearArmed=null;$('#clearAll').textContent='Clear';$('#clearAll').classList.remove('danger');return clearAll();}
+ $('#clearAll').textContent='Click again to clear';$('#clearAll').classList.add('danger');
+ clearArmed=setTimeout(()=>{clearArmed=null;$('#clearAll').textContent='Clear';$('#clearAll').classList.remove('danger');},3000);
+});
+// Theme: Auto (system) -> Light -> Dark. The choice is not sensitive, so it is remembered across sessions.
+const THEMES=[['auto','Auto','contrast'],['light','Light','sun'],['dark','Dark','moon']];
+function showTheme(){const cur=document.documentElement.dataset.theme||'auto',[,name,ic]=THEMES.find(x=>x[0]===cur);$('#themeBtn').innerHTML=icon(ic)+`<span>${name}</span>`;$('#themeBtn').title=`Theme: ${name} (click to change)`;$('#themeBtn').setAttribute('aria-label',`Theme: ${name}`);}
+$('#themeBtn').addEventListener('click',()=>{
+ const cur=document.documentElement.dataset.theme||'auto',next=THEMES[(THEMES.findIndex(x=>x[0]===cur)+1)%THEMES.length][0];
+ if(next==='auto')delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=next;
+ try{next==='auto'?localStorage.removeItem('vlan-acl-theme'):localStorage.setItem('vlan-acl-theme',next);}catch{}
+ showTheme();
+});
+showTheme();
+input.addEventListener('input',()=>{stop();resetOutput('Input changed. Select Analyze.');status.textContent='';session.drop(SESSION.analyzed);saveConfig();});
+for(const el of [wrap,$('#inventoryBody')])el.addEventListener('click',e=>{const b=e.target.closest('[data-src][data-dst]');if(b)details(+b.dataset.src,b.dataset.dst,b);});
+$('#closeDetails').addEventListener('click',()=>dialog.close());
+// Hovering an icon line in the panel lights the trace lines that carry the same icon.
+// Icon lines in the panel link to the trace: hover lights the lines with the same icon, click pins them and
+// scrolls to the first. A destination line under "Result differs by destination" lights the lines deciding it.
+let pinnedIcon=null;
+function lightTrace(ic){
+ const want=ic?.startsWith('dest:')?ic.slice(5).split(','):null;
+ $('#detailRules').querySelectorAll('.traceLine').forEach(l=>l.classList.toggle('lit',!!ic&&(want?(l.dataset.segs||'').split(',').some(s=>want.includes(s)):l.dataset.icon===ic)));
+ $('#detailWhy').querySelectorAll('[data-icon]').forEach(w=>w.setAttribute('aria-pressed',String(w.dataset.icon===pinnedIcon)));
+}
+$('#detailWhy').addEventListener('mouseover',e=>lightTrace(e.target.closest('[data-icon]')?.dataset.icon||pinnedIcon));
+$('#detailWhy').addEventListener('mouseleave',()=>lightTrace(pinnedIcon));
+$('#detailWhy').addEventListener('click',e=>{
+ const ic=e.target.closest('[data-icon]')?.dataset.icon;if(!ic)return;
+ pinnedIcon=pinnedIcon===ic?null:ic;lightTrace(pinnedIcon);
+ if(pinnedIcon)$('#detailRules .traceLine.lit')?.scrollIntoView({block:'nearest',behavior:'smooth'});
+});
+$('#detailWhy').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-icon]')){e.preventDefault();e.target.click();}});
+dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}});
+$('#expandBtn').addEventListener('click',()=>{const show=$('.grid').classList.contains('matrixOnly');if(show&&dialog.open){scrollBeforeDetails=null;dialog.close();}toggleInput(!show);if(show)input.focus({preventScroll:true});});
+// Text searches re-render after typing pauses; select filters apply immediately.
+let renderTimer=null;
+for(const id of ['search','sourceSearch'])$('#'+id).addEventListener('input',()=>{clearTimeout(renderTimer);renderTimer=setTimeout(render,150);});
+for(const id of ['groupFilter','resultFilter'])$('#'+id).addEventListener('input',()=>{clearTimeout(renderTimer);render();});
+$('#resetFilters').addEventListener('click',resetFilters);
+// Restore this tab's session: the paste, its analysis (re-run, so results always match this version) and the multi-switch file.
+if(!selfTesting){const saved=session.get(SESSION.config);if(saved){input.value=saved;if(session.get(SESSION.analyzed))analyze(true);}restoreWorkbook();}
+updateClearButton();
+})();
+</script>
+<script id="selfTest">
+/* Built-in regression checks. Open this file with #selftest appended to the address (works from disk).
+ * Engine checks run directly; the last check analyzes the bundled example through the background worker.
+ * The result is shown at the top of the page and mirrored in document.title for headless runs. */
+(function(){
+'use strict';
+if(location.hash!=='#selftest')return;
+const E=window.AclEngine,rows=[];
+const expect=(actual,expected,what)=>{if(JSON.stringify(actual)!==JSON.stringify(expected))throw Error(`${what}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);};
+const check=(name,fn)=>{try{fn();rows.push({name,ok:true});}catch(e){rows.push({name,ok:false,detail:e.message});}};
+const status=(m,src,dst)=>m.results[`v:${src}>${dst}`]?.status;
+const targetKey=(m,text)=>m.targets.find(t=>t.text===text)?.key;
+const svi=(id,ip,extra='')=>`interface Vlan${id}\n${extra} ip address ${ip} 255.255.255.0\n!\n`;
+const twoVlans=acl=>`interface Vlan10\n ip address 10.0.0.1 255.255.255.0\n ip access-group A in\n!\n${svi(20,'10.0.1.1')}ip access-list extended A\n${acl}`;
+
+// Bundled example: "Load example" fills the input and starts the background analysis checked at the end.
+document.querySelector('#exampleBtn').click();
+const ex=E.buildModel(document.querySelector('#configInput').value);
+check('example: wildcard 0.255.0.255 permits 10.*.12.* (VLAN 12 → 50)',()=>expect(status(ex,12,'v:50'),'allow','status'));
+check('example: VLAN 12 → 51 blocked except earlier DHCP permits',()=>{const r=ex.results['v:12>v:51'];expect(r.status,'split','status');expect(r.policy.permissions.map(p=>[p.sourcePorts,p.destinationPorts]),[[[67,67],[68,68]],[[68,68],[67,67]]],'DHCP ports');});
+check('example: no ACL either side is OPEN (VLAN 40 → 12)',()=>expect(status(ex,40,'v:12'),'open','status'));
+check('example: permit any is ALLOW (VLAN 60 → 12)',()=>expect(status(ex,60,'v:12'),'allow','status'));
+check('example: VLAN 13 → 51 blocked',()=>expect(status(ex,13,'v:51'),'deny','status'));
+
+// VRFs
+const vrf=E.buildModel(svi(10,'10.0.0.1',' ip vrf forwarding A\n ip access-group V10 in\n')+svi(20,'10.0.0.1',' ip vrf forwarding B\n')+svi(30,'10.0.1.1',' ip vrf forwarding A\n')+svi(40,'10.0.1.1',' ip vrf forwarding B\n')+'ip access-list extended V10\n 10 deny ip any 10.0.0.0 0.255.255.255\n 20 permit ip any any\n!');
+check('VRF: reused subnet in another VRF is evaluated (VLAN 10 → 20)',()=>{expect(status(vrf,10,'v:20'),'deny','status');if(!vrf.results['v:10>v:20'].routingNote)throw Error('missing routing notice');});
+check('VRF: target segments prefer the source VRF',()=>{const r=vrf.results[`v:10>${targetKey(vrf,'10.0.0.0/8')}`];expect(r.status,'deny','status');expect(r.segments.map(s=>s.label),['VLAN 30','Rest of 10.0.0.0/8 (not a VLAN)'],'segments');});
+check('VRF: source in VRF B sees its own VRF',()=>expect(vrf.results[`v:20>${targetKey(vrf,'10.0.0.0/8')}`].segments.map(s=>s.label),['VLAN 40','Rest of 10.0.0.0/8 (not a VLAN)'],'segments'));
+const sameVrf=E.buildModel(svi(50,'10.0.5.1',' ip vrf forwarding A\n')+'interface Vlan51\n ip vrf forwarding A\n ip address 10.0.5.129 255.255.255.128\n!');
+check('VRF: same-VRF overlapping VLANs still need input',()=>expect(status(sameVrf,50,'v:51'),'review','status'));
+
+// Column grouping
+const twin=E.buildModel(svi(10,'10.9.0.1',' ip vrf forwarding A\n ip access-group T in\n')+svi(20,'10.0.0.1',' ip vrf forwarding B\n')+svi(30,'10.0.0.1',' ip vrf forwarding C\n')+'ip access-list extended T\n 10 deny ip any 10.0.0.0 0.0.0.255\n 20 permit ip any any\n!');
+check('groups: VLANs exactly matching a deny target are marked, and stay under VLANs',()=>{expect(twin.vlans.filter(v=>v.group==='deny').map(v=>v.id),[20,30],'marked');expect(twin.groups.allowed.map(v=>v.id),[10,20,30],'VLAN group');expect(twin.groups.deny.length,0,'deny group size');});
+check('groups: aggregate deny target forms the deny group',()=>expect(ex.groups.deny.map(t=>t.text),['10.0.0.0/8'],'deny group'));
+
+// ACL block boundaries
+check('ACL end: unindented global command closes the block',()=>{const m=E.buildModel(twoVlans(' permit ip any any\nip route 0.0.0.0 0.0.0.0 10.0.0.254'));expect(m.acls.find(a=>a.name==='A').fatal,[],'fatal');expect(status(m,10,'v:20'),'allow','status');});
+check('ACL end: wrapped ACE fragment still fails closed',()=>expect(status(E.buildModel(twoVlans(' permit tcp any host 10.0.1.5\neq 443\n deny ip any any')),10,'v:20'),'review','status'));
+check('ACL end: time-range line still fails closed',()=>expect(status(E.buildModel(twoVlans(' permit tcp any any eq 22\ntime-range WORK')),10,'v:20'),'review','status'));
+
+// Numbered ACLs
+const numbered=lines=>E.buildModel(`${lines}\ninterface Vlan10\n ip address 10.0.0.1 255.255.255.0\n ip access-group 101 in\n!\n${svi(20,'10.0.1.1')}`);
+check('numbered ACL: lines split by ! are one ACL',()=>{const m=numbered('access-list 101 permit tcp any any eq 80\n!\naccess-list 101 deny ip any any');expect(m.acls[0].fatal,[],'fatal');expect(status(m,10,'v:20'),'split','status');});
+check('numbered ACL: identical repeated copy is accepted',()=>{const m=numbered('access-list 101 permit tcp any any eq 80\n!\naccess-list 101 permit tcp any any eq 80');expect(m.acls[0].fatal,[],'fatal');});
+check('numbered ACL: conflicting repeated copy needs input',()=>expect(status(numbered('access-list 101 permit tcp any any eq 80\naccess-list 101 deny ip any any\n!\naccess-list 101 permit tcp any any eq 80\naccess-list 101 permit ip any any'),10,'v:20'),'review','status'));
+
+// Rule semantics
+check('eq list: IOS XE multi-port eq gives exceptions',()=>{const r=E.buildModel(twoVlans(' 10 permit tcp any any eq 22 443\n 20 deny ip any any')).results['v:10>v:20'];expect(r.status,'split','status');expect(r.policy.permissions.map(p=>p.destinationPorts),[[22,22],[443,443]],'ports');});
+check('established: only ACK/RST traffic passes',()=>expect(E.buildModel(twoVlans(' permit tcp any any established')).results['v:10>v:20'].policy.permissions.map(p=>p.tcpFlags),[[1,1]],'tcpFlags'));
+check('OUT ACL on destination applies',()=>expect(status(E.buildModel(svi(10,'10.0.0.1')+svi(20,'10.0.1.1',' ip access-group B out\n')+'ip access-list extended B\n permit tcp 10.0.0.0 0.0.0.255 any eq 443\n!'),10,'v:20'),'split','status'));
+check('missing ACL definition needs input',()=>expect(status(E.buildModel(svi(10,'10.0.0.1',' ip access-group NOPE in\n')+svi(20,'10.0.1.1')),10,'v:20'),'review','status'));
+
+// End to end through the background worker (the part that must work when the file is opened from disk).
+const report=()=>{
+ const failed=rows.filter(r=>!r.ok);
+ const box=document.createElement('section');box.id='selftestResult';box.className='card';box.style.cssText='margin:0 0 8px;padding:8px 12px;flex:none;max-height:40vh;overflow:auto';
+ box.innerHTML=`<b class="${failed.length?'deny':'allow'}">Self-test v${E.VERSION}: ${rows.length-failed.length}/${rows.length} passed</b>`+rows.map(r=>`<div class="${r.ok?'allow':'deny'}">${r.ok?'PASS':'FAIL'} · ${r.name.replace(/[<&]/g,'')}${r.ok?'':' — '+r.detail.replace(/[<&]/g,'')}</div>`).join('');
+ document.querySelector('.wrap').prepend(box);
+ document.title=`SELFTEST ${failed.length?'FAIL':'PASS'} ${rows.length-failed.length}/${rows.length}`+(failed.length?' · '+failed.map(r=>r.name).join(' | '):'');
+};
+const started=Date.now();
+(function waitForWorker(){
+ const status=document.querySelector('#status').textContent;
+ if(document.querySelector('.matrix')&&/^Analyzed /.test(status)){
+  rows.push({name:'worker: example analyzed in the background ('+status+')',ok:true});
+  check('trace: VLAN 12 → 51 shows deciding, greyed and collapsed lines',()=>{
+   document.querySelector('.cell[data-src="12"][data-dst="v:51"]').click();
+   const trace=document.querySelector('#detailRules .trace');
+   const shown=[...trace.querySelectorAll(':scope > .traceLine')].map(l=>(l.classList.contains('idle')?'idle':l.classList.contains('deny')?'deny':'allow')+' '+l.querySelector('code').textContent.split(' ')[0]);
+   expect(shown,['allow 10','allow 20','deny 90','idle 100'],'lines');
+   expect(trace.querySelector('.traceMore .showText').textContent,"Show 2 lines that don't match",'collapsed');
+   expect([...trace.querySelectorAll('.traceHead')].map(h=>h.textContent),['VLAN 12 IN · VLAN12_IN','VLAN 51 OUT · no ACL'],'stages');
+   expect([!!document.querySelector('tr[data-source="12"].rowLit'),!!document.querySelector('th.colLit[data-destination="v:51"]')],[true,true],'row and column lit while open');
+   document.querySelector('#closeDetails').click();
+  });
+  check('trace: per-destination lines give verdicts and light the deciding ACL lines',()=>{
+   const th=[...document.querySelectorAll('.columnRow th')].find(x=>x.textContent.includes('10.0.0.0/8'));
+   document.querySelector(`.cell[data-src="12"][data-dst="${th.dataset.destination}"]`).click();
+   const subs=[...document.querySelectorAll('#detailWhy .why.sub')];
+   expect(subs.map(s=>s.querySelector('.subLine b').textContent+' | '+s.querySelector('.subLine span[title]').textContent),['Allowed | VLAN 50','Blocked | VLAN 51','Blocked except listed addresses | Rest of 10.0.0.0/8 (not a VLAN)'],'destination lines');
+   if(![...document.querySelectorAll('#detailWhy .why:not(.sub)')].some(w=>/DHCP allowed\s*All destinations/.test(w.textContent)))throw Error('missing "DHCP allowed · All destinations"');
+   subs[0].click();
+   expect([...document.querySelectorAll('#detailRules .traceLine.lit code')].map(c=>c.textContent.split(' ')[0]),['10','20','50'],'lit for VLAN 50');
+   document.querySelector('#closeDetails').click();
+  });
+  check('row-wide: VLAN 12 shows DHCP once on its row label, not in its cells',()=>{
+   const head=document.querySelector('[data-focus-src="12"] .rowWide');if(!head)throw Error('no row-wide icon on VLAN 12');
+   const cellIcons=[...document.querySelectorAll('.cell[data-src="12"] .explainIcon')].map(i=>i.getAttribute('aria-label'));
+   if(cellIcons.includes('DHCP'))throw Error('DHCP still shown in a VLAN 12 cell');
+   if(document.querySelector('[data-focus-src="13"] .rowWide'))throw Error('VLAN 13 does not allow DHCP everywhere');
+  });
+  check('excel: export builds an .xlsx with matrix and paths sheets',()=>{
+   let blob=null,name='';const create=URL.createObjectURL,click=HTMLAnchorElement.prototype.click;
+   URL.createObjectURL=b=>{blob=b;return create(b);};HTMLAnchorElement.prototype.click=function(){name=this.download;};
+   try{document.querySelector('#excelBtn').click();}finally{URL.createObjectURL=create;HTMLAnchorElement.prototype.click=click;}
+   if(!blob||!/\.xlsx$/.test(name))throw Error('no .xlsx download ('+name+')');
+   expect(blob.type,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','type');
+   if(blob.size<4000)throw Error('workbook too small: '+blob.size+' bytes');
+  });
+  document.querySelector('.cell[data-src="12"][data-dst="v:51"]').click();document.querySelector('#closeDetails').click();
+  return setTimeout(()=>{check('crosshair: closing the panel clears the row and column highlight',()=>expect(document.querySelectorAll('.rowLit,.colLit').length,0,'lit after close'));report();},50);
+ }
+ if(Date.now()-started>15000||/could not start|stopped/i.test(status)){rows.push({name:'worker: example analyzed in the background',ok:false,detail:status||'timed out'});return report();}
+ setTimeout(waitForWorker,100);
+})();
+})();
+</script>
+</body>
+</html>
